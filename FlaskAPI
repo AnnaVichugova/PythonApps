@@ -1,0 +1,227 @@
+#############################ячейка №1 в Google Colab###########################################################
+# Установка необходимых библиотек
+!pip install flask
+!pip install flask-ngrok
+!pip install fastapi nest-asyncio pyngrok uvicorn
+
+# Импорт модулей и библиотек
+import traceback
+import threading
+
+from flask_ngrok import run_with_ngrok
+from flask import Flask, jsonify, request, render_template
+from pydantic import BaseModel
+from typing import Union, Optional, List
+import os
+
+import sqlite3
+import tkinter as tk
+
+#############################ячейка №2 в Google Colab###########################################################
+# создаем директорию с html-шаблонами веб-страниц
+!mkdir templates
+
+#############################ячейка №3 в Google Colab###########################################################
+# создаем html-страницу добавления заявки
+%%writefile templates/index.html
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Отправить заявку</title>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+   </head>
+   <body>
+      <div class="container mt-3">
+         <h2>Отправить заявку</h2>
+         <form method="POST" action="/apps">
+            <div class="form-group">
+               <label for="id">ID:</label>
+               <input type="text" class="form-control" id="id" placeholder="Введите ID" name="id" required>
+            </div>
+            <div class="form-group">
+               <label for="course">Курс:</label>
+               <input type="text" class="form-control" id="course" placeholder="Введите курс" name="course" required>
+            </div>
+            <div class="form-group">
+               <label for="name">Имя:</label>
+               <input type="text" class="form-control" id="name" placeholder="Введите имя" name="name" required>
+            </div>
+            <div class="form-group">
+               <label for="email">Email:</label>
+               <input type="email" class="form-control" id="email" placeholder="Введите email" name="email">
+            </div>
+            <div class="form-group">
+               <label for="phone">Телефон:</label>
+               <input type="text" class="form-control" id="phone" placeholder="Введите телефон" name="phone">
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить</button>
+         </form>
+      </div>
+   </body>
+</html>
+
+#############################ячейка №4 в Google Colab###########################################################
+# создаем html-страницу просмотра списка заявок
+%%writefile templates/apps.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Все заявки</title>
+</head>
+<body>
+    <h1>Все заявки:</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>№ (ID)</th>
+                <th>Курс (Course)</th>
+                <th>Клиент (Name)</th>
+                <th>Почта (Email)</th>
+                <th>Телефон (Phone)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in apps %}
+            <tr>
+                <td>{{ app.id }}</td>
+                <td>{{ app.course }}</td>
+                <td>{{ app.name }}</td>
+                <td>{{ app.email }}</td>
+                <td>{{ app.phone }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
+
+#############################ячейка №5 в Google Colab###########################################################
+# Создание экземпляра приложения FastAPI
+
+app = Flask(__name__)
+
+# Установка токена для авторизации в ngrok
+auth_token = "2JwGmDxUrtNUvvZaZBWjEsdq3v2_4RPKaTBVoivnBrnm3bpcE" #@param {type:"string"}
+os.system(f"ngrok authtoken {auth_token}")
+
+# Запуск приложения с использованием ngrok
+run_with_ngrok(app)
+
+# Создание таблицы в базе данных SQLite
+conn = sqlite3.connect('example.db')
+cursor = conn.cursor()
+cursor.execute('''CREATE TABLE IF NOT EXISTS apps
+                (id INTEGER PRIMARY KEY AUTOINCREMENT, course TEXT, name TEXT, email TEXT, phone TEXT)''')
+conn.commit()
+
+# Описание моделей данных
+class App(BaseModel):
+    id: int
+    course: str
+    name: str
+    email: Optional[str]
+    phone: Optional[str]
+
+class Welcome:
+    apps: List[App]
+    def init(self, apps: List[App]) -> None:
+        self.apps = apps
+
+# Функция добавления записи в базу данных
+def add_app_to_db(conn, app):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO apps (id, course, name, email, phone) VALUES (?, ?, ?, ?, ?)", (app.id, app.course, app.name, app.email, app.phone))
+        conn.commit()
+        return app
+    except:
+        traceback.print_exc()
+        conn.rollback()
+    finally:
+        cursor.close()
+
+# Функция получения записи из базы данных
+def get_all_apps_from_db(conn):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM apps")
+        results = cursor.fetchall()
+        apps = []
+        for row in results:
+            app = {"id": row[0], "course": row[1], "name": row[2], "email": row[3], "phone": row[4]}
+            apps.append(app)
+        return apps
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении списка пользователей из базы данных'
+    finally:
+        cursor.close()
+
+# Функция получения записи из базы данных по id
+def get_app_from_db(conn, app_id):
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT * FROM apps WHERE id ='{app_id}'")
+    result = cursor.fetchone()
+    if result:
+        app = {"id": result[0], "course": result[1], "name": result[2], "email": result[3], "phone": result[4]}
+        return app
+    return 'Пользователь не найден'
+
+# Обработчик запросов по корневому адресу
+@app.route('/')
+def hello():
+    return render_template('index.html')
+
+# Обработчик запросов на добавление записи в базу данных
+@app.route('/apps', methods=['POST'])
+def add_app():
+    conn = sqlite3.connect('example.db')
+    app = request.form
+    try:
+        new_app = App(id=app['id'], course=app['course'], name=app['name'], email=app['email'], phone=app['phone'])
+        add_app_to_db(conn, new_app)
+        return jsonify(new_app.dict())
+    except:
+        traceback.print_exc()
+        return 'Ошибка при добавлении пользователя в базу данных'
+    finally:
+        conn.close()
+
+# Обработчик запросов на чтение всех записей из базы данных
+@app.route('/apps', methods=['GET'])
+def get_apps():
+    conn = sqlite3.connect('example.db')
+    try:
+        apps = get_all_apps_from_db(conn)
+        return render_template('apps.html', apps=apps)
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении списка пользователей из базы данных'
+    finally:
+        conn.close()
+
+# Обработчик запросов на получение записи из базы данных по id
+@app.route('/apps/<app_id>', methods=['GET'])
+def get_app(app_id):
+    conn = sqlite3.connect('example.db')
+    try:
+        app = get_app_from_db(conn, app_id)
+        if app != 'Пользователь не найден':
+            return jsonify(app)
+        return 'Пользователь не найден'
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении пользователя из базы данных'
+    finally:
+        conn.close()
+
+#Запуск приложения
+if __name__ == '__main__':
+    app.run()
