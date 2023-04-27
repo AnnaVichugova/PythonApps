@@ -1,0 +1,57 @@
+#############################ячейка №1 в Google Colab###########################################################
+# Установка необходимых библиотек
+!pip install fastapi
+!pip install uvicorn
+!pip install nest-asyncio
+!pip install pyngrok
+
+# Импорт модулей и библиотек
+from typing import Union
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import Optional, List
+from pyngrok import ngrok
+import nest_asyncio
+import uvicorn
+
+#############################ячейка №2 в Google Colab###########################################################
+# Создаем экземпляр приложения FastAPI
+app = FastAPI()
+
+# Создаем модель данных
+class App(BaseModel):
+    id: int
+    course: str
+    name: str
+    email: Optional[str]
+    phone: Optional[str]
+
+# Создаем класс приложения
+class Welcome:
+    apps: List[App]
+
+    def init(self, apps: List[App]) -> None:
+        self.apps = apps
+
+# Обработка GET-запроса по корневому URL
+@app.get("/")
+def read_root():
+    return {"Привет, это мое REST API приложение"}
+
+# Обработка GET-запроса по URL с параметром
+@app.get("/apps/{app_id}")
+def read_app(app_id: int, q: Union[str, None] = None):
+    return {"app_id": app_id, "q": q}
+
+# Обработка POST-запроса по URL
+@app.post("/apps/")
+def add_app(app: App):
+    return {"app_id": app.id, "app_course": app.course, "client_name": app.name, "client_email": app.email, "client_phone": app.phone}
+
+# Запуск сервера с помощью ngrok
+public_url = ngrok.connect()
+print(f"Доступно по адресу: {public_url}")
+
+# Запуск сервера
+nest_asyncio.apply()
+uvicorn.run(app, host="127.0.0.1", port=80)
