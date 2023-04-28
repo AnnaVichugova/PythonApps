@@ -13,10 +13,16 @@ from typing import Optional, List
 from pyngrok import ngrok
 import nest_asyncio
 import uvicorn
+import os
 
 #############################ячейка №2 в Google Colab###########################################################
 # Создаем экземпляр приложения FastAPI
 app = FastAPI()
+
+# Установка токена для авторизации в ngrok, т.к. нельзя использовать Colab-notebook IP напрямую, создаем тунель для публичного URL с помощью ngrok
+# Аутентификация ngrok  - получить токен в https://dashboard.ngrok.com/signup ("Your Authtoken" and copy the API key)
+auth_token = ".........ваш Authtoken-токен ..........." #@param {type:"string"}
+os.system(f"ngrok authtoken {auth_token}")
 
 # Создаем модель данных
 class App(BaseModel):
