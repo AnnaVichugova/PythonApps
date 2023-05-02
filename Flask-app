@@ -3,14 +3,16 @@
 !pip install flask
 !pip install flask-ngrok
 !pip install fastapi nest-asyncio pyngrok uvicorn
+!pip install pydantic[email]
 
 # Импорт модулей и библиотек
 import traceback
 import threading
 
 from flask_ngrok import run_with_ngrok
-from flask import Flask, jsonify, request, render_template
-from pydantic import BaseModel
+from flask import Flask, jsonify, request, render_template, Response
+from pydantic import BaseModel, EmailStr, ValidationError
+from enum import Enum
 from typing import Union, Optional, List
 import os
 
@@ -18,12 +20,38 @@ import sqlite3
 import tkinter as tk
 
 #############################ячейка №2 в Google Colab###########################################################
-# создаем директорию с html-шаблонами веб-страниц
+# создаем директорию с шаблонами
 !mkdir templates
 
 #############################ячейка №3 в Google Colab###########################################################
 # создаем html-страницу добавления заявки
 %%writefile templates/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сервис управления заявками</title>
+</head>
+<body>
+    <h1>Сервис управления заявками</h1>
+    <table>
+            <tr>
+                <td>
+                     <a href='/add_app'>Отправить новую заявку</a></td>
+                </td>
+            </tr>
+            <tr>
+                <td><a href='/apps'>Смотреть все заявки</a></td>
+            </tr>
+    </table>
+</body>
+</html>
+
+#############################ячейка №4 в Google Colab###########################################################
+# создаем html-страницу добавления заявки
+               #<input type="text" class="form-control" id="course" placeholder="Введите курс" name="course" required>
+%%writefile templates/add_app.html
 <!DOCTYPE html>
 <html>
    <head>
@@ -38,14 +66,21 @@ import tkinter as tk
    <body>
       <div class="container mt-3">
          <h2>Отправить заявку</h2>
-         <form method="POST" action="/apps">
-            <div class="form-group">
-               <label for="id">ID:</label>
-               <input type="text" class="form-control" id="id" placeholder="Введите ID" name="id" required>
-            </div>
+         <table>
+         <tr>
+         <td><a href='/'>ГЛАВНАЯ</a></td>
+    <td><a href='/apps'>Все заявки</a></td>
+    <td><a href='/add_app'>Добавить заявку</a></td>
+    </tr>
+    </table>
+         <form method="POST" action="/add_app">
             <div class="form-group">
                <label for="course">Курс:</label>
-               <input type="text" class="form-control" id="course" placeholder="Введите курс" name="course" required>
+  <select id="course" name="course">
+    <option value="OAIS">OAIS - Основы Архитектуры и Интеграции </option>
+    <option value="TTIS">TTIS - Разработка ТЗ на ИС</option>
+    <option value="BUML">BUML - UML Для бизнес-аналитика</option>
+  </select>
             </div>
             <div class="form-group">
                <label for="name">Имя:</label>
@@ -59,13 +94,13 @@ import tkinter as tk
                <label for="phone">Телефон:</label>
                <input type="text" class="form-control" id="phone" placeholder="Введите телефон" name="phone">
             </div>
-            <button type="submit" class="btn btn-primary">Добавить</button>
+            <button type="submit" class="btn btn-primary">Отправить</button>
          </form>
       </div>
    </body>
 </html>
 
-#############################ячейка №4 в Google Colab###########################################################
+#############################ячейка №5 в Google Colab###########################################################
 # создаем html-страницу просмотра списка заявок
 %%writefile templates/apps.html
 <!DOCTYPE html>
@@ -77,6 +112,13 @@ import tkinter as tk
 </head>
 <body>
     <h1>Все заявки:</h1>
+         <table>
+         <tr>
+         <td><a href='/'>ГЛАВНАЯ</a></td>
+    <td><a href='/apps'>Все заявки</a></td>
+    <td><a href='/add_app'>Добавить заявку</a></td>
+    </tr>
+    </table>
     <table>
         <thead>
             <tr>
@@ -102,16 +144,13 @@ import tkinter as tk
 </body>
 </html>
 
-#############################ячейка №5 в Google Colab###########################################################
-# Создание экземпляра приложения FastAPI
+#############################ячейка №6 в Google Colab###########################################################
+# Создание экземпляра Flask-приложения
 
 app = Flask(__name__)
 
-# Установка токена для авторизации в ngrok
-# т.к. нельзя использовать Colab-notebook IP напрямую, создаем тунель для публичного URL с помощью ngrok
-
-# Аутентификация ngrok  - получить токен в https://dashboard.ngrok.com/signup ("Your Authtoken" and copy the API key)
-auth_token = ".........ваш Authtoken-токен ..........." #@param {type:"string"}
+# Установка токена для авторизации в ngrok #@param {type:"string"}
+auth_token = ".........ваш токен в ngrok................" 
 os.system(f"ngrok authtoken {auth_token}")
 
 # Запуск приложения с использованием ngrok
@@ -125,12 +164,17 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS apps
 conn.commit()
 
 # Описание моделей данных
+class Courses(str, Enum):
+    OAIS = 'OAIS'
+    TTIS = 'TTIS'
+    BUML = 'BUML'
+
 class App(BaseModel):
-    id: int
-    course: str
-    name: str
-    email: Optional[str]
-    phone: Optional[str]
+    course: Courses
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    id: Optional[int] = None
 
 class Welcome:
     apps: List[App]
@@ -141,8 +185,10 @@ class Welcome:
 def add_app_to_db(conn, app):
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO apps (id, course, name, email, phone) VALUES (?, ?, ?, ?, ?)", (app.id, app.course, app.name, app.email, app.phone))
+        cursor.execute("INSERT INTO apps (course, name, email, phone) VALUES (?, ?, ?, ?)", (app.course, app.name, app.email, app.phone))
         conn.commit()
+        # получаем id после вставки записи
+        app.id = cursor.lastrowid 
         return app
     except:
         traceback.print_exc()
@@ -150,7 +196,20 @@ def add_app_to_db(conn, app):
     finally:
         cursor.close()
 
-# Функция получения записи из базы данных
+# Функция изменения записи в базе данных
+def update_app_in_db(conn, app_id, app_data):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE apps SET course=?, name=?, email=?, phone=? WHERE id=?", (app_data.get('course'), app_data.get('name'), app_data.get('email'), app_data.get('phone'), app_id))
+        conn.commit()
+        return app_data
+    except:
+        traceback.print_exc()
+        conn.rollback()
+    finally:
+        cursor.close()
+
+# Функция получения всех записей из базы данных
 def get_all_apps_from_db(conn):
     cursor = conn.cursor()
     try:
@@ -163,7 +222,7 @@ def get_all_apps_from_db(conn):
         return apps
     except:
         traceback.print_exc()
-        return 'Ошибка при получении списка пользователей из базы данных'
+        return 'Ошибка при получении списка заявок из базы данных'
     finally:
         cursor.close()
 
@@ -177,53 +236,121 @@ def get_app_from_db(conn, app_id):
         return app
     return 'Пользователь не найден'
 
+# Функция удаления записи из базы данных
+def delete_app_from_db(conn, app_id):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM apps WHERE id=?", (app_id,))
+        conn.commit()
+    except:
+        traceback.print_exc()
+        conn.rollback()
+    finally:
+        cursor.close()
+
 # Обработчик запросов по корневому адресу
 @app.route('/')
 def hello():
     return render_template('index.html')
 
-# Обработчик запросов на добавление записи в базу данных
-@app.route('/apps', methods=['POST'])
-def add_app():
-    conn = sqlite3.connect('example.db')
-    app = request.form
-    try:
-        new_app = App(id=app['id'], course=app['course'], name=app['name'], email=app['email'], phone=app['phone'])
-        add_app_to_db(conn, new_app)
-        return jsonify(new_app.dict())
-    except:
-        traceback.print_exc()
-        return 'Ошибка при добавлении пользователя в базу данных'
-    finally:
-        conn.close()
-
-# Обработчик запросов на чтение всех записей из базы данных
+# Обработчик запросов на получение списка заявок:
 @app.route('/apps', methods=['GET'])
 def get_apps():
     conn = sqlite3.connect('example.db')
     try:
         apps = get_all_apps_from_db(conn)
         return render_template('apps.html', apps=apps)
-    except:
+    except Exception as e:
         traceback.print_exc()
-        return 'Ошибка при получении списка пользователей из базы данных'
+        return f'Ошибка при получении списка заявок из базы данных: {e}'
     finally:
         conn.close()
 
-# Обработчик запросов на получение записи из базы данных по id
-@app.route('/apps/<app_id>', methods=['GET'])
-def get_app(app_id):
+# Обработчик добавления новой заявки:
+@app.route('/add_app', methods=['POST', 'GET'])
+def apps():
     conn = sqlite3.connect('example.db')
+    apps = None
     try:
-        app = get_app_from_db(conn, app_id)
-        if app != 'Пользователь не найден':
-            return jsonify(app)
-        return 'Пользователь не найден'
-    except:
+        if request.method == 'POST':
+            if request.content_type == 'application/json':
+                app_data = request.json
+            elif request.form:
+                app_data = request.form
+            else:
+                app_data = request.args
+            course = app_data.get('course')
+            name = app_data.get('name')
+            email = app_data.get('email')
+            phone = app_data.get('phone')
+            new_app = App(course=course or None, name=name or None, email=email or None, phone=phone or None)
+            add_app_to_db(conn, new_app)
+            conn.commit()
+            apps = get_all_apps_from_db(conn)
+            return jsonify(new_app.dict())
+        else:
+            apps = get_all_apps_from_db(conn)
+            return render_template('add_app.html', apps=apps)
+    except Exception as e:
         traceback.print_exc()
-        return 'Ошибка при получении пользователя из базы данных'
+        if request.method == 'POST':
+            return f'Ошибка при добавлении пользователя в базу данных: {e}'
+        else:
+            return f'Ошибка при получении списка заявок из базы данных: {e}'
     finally:
         conn.close()
+
+# Обработчик изменения заявки по id:
+@app.route('/apps/<app_id>', methods=['GET', 'PUT', 'DELETE'])
+def apps_op(app_id):
+    if request.method == 'GET':
+        # Обработчик запросов на получение записи из базы данных по id
+        conn = sqlite3.connect('example.db')
+        try:
+            app = get_app_from_db(conn, app_id)
+            if app != 'Пользователь не найден':
+                return jsonify(app)
+            return 'Пользователь не найден'
+        except:
+            traceback.print_exc()
+            return 'Ошибка при получении заявки из базы данных'
+        finally:
+            conn.close()
+    elif request.method == 'PUT':
+        # Обработчик запросов на изменение записи в базе данных
+        conn = sqlite3.connect('example.db')
+        if request.content_type == 'application/json':
+            app_data = request.json
+        else:
+            app_data = {k: v for k, v in request.args.items() if k in ['course', 'name', 'email', 'phone']}
+        try:
+            app = get_app_from_db(conn, app_id)
+            if app == 'Пользователь не найден':
+                return 'Пользователь не найден'
+            # Проверяем, были ли введены новые значения полей app
+            # Если значение не введено, оставляем прежнее значение из базы данных
+            for field in ['course', 'name', 'email', 'phone']:
+                if field not in app_data:
+                    app_data[field] = app[field]
+            update_app_in_db(conn, app_id, app_data)
+            updated_app = get_app_from_db(conn, app_id)
+            return jsonify(updated_app)
+        except:
+            traceback.print_exc()
+            return 'Ошибка при изменении заявки в базе данных'
+        finally:
+            conn.close()
+    elif request.method == 'DELETE':
+        # Обработчик запросов на удаление записи в базе данных
+        conn = sqlite3.connect('example.db')
+        try:
+            delete_app_from_db(conn, app_id)
+            return f'Заявка с id {app_id} удалена из базы данных'
+        except:
+            traceback.print_exc()
+            return 'Ошибка при удалении заявки из базы данных'
+        finally:
+            conn.close()
 
 #Запуск приложения
 if __name__ == '__main__':
