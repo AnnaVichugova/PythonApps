@@ -1,0 +1,153 @@
+##############################################ячейка №1 в Google Colab##############################################
+#установка библиотке
+!pip install neo4j
+!pip install neo4jupyter
+
+#импорт модулей
+from neo4j import GraphDatabase
+import logging
+from neo4j.exceptions import ServiceUnavailable
+import pandas as pd
+import networkx as nx
+import matplotlib.pyplot as plt
+import pandas as pd
+##############################################ячейка №2 в Google Colab - создание графа##############################################
+# Определение класса
+class App:
+
+    # Конструктор класса
+    def __init__(self, uri, user, password):
+        # Инициализация драйвера Neo4j с переданными параметрами
+        self.driver = GraphDatabase.driver(uri, auth=(user, password))        
+
+    # Метод класса для закрытия соединения с базой данных Neo4j
+    def close(self):
+        # Не забудьте закрыть соединение драйвера, когда закончите работу с ним
+        self.driver.close()
+
+    # Метод класса для создания графа
+    def create_graph(self):
+        with self.driver.session() as session:
+            # Выполнение запроса на создание графа
+            session.execute_write(self._create_graph)
+            
+    # Статический метод, который содержит запрос на создание графа 
+    @staticmethod
+    def _create_graph(tx):
+        tx.run("""
+        CREATE (A:Store { name: 'A' })
+        CREATE (B:Shop { name: 'B' })
+        CREATE (C:Store { name: 'C' })
+        CREATE (D:Store { name: 'D' })
+        CREATE (E:Shop { name: 'E' })
+        CREATE (F:Store { name: 'F' })
+        CREATE (G:Store { name: 'G' })
+        CREATE (H:Shop { name: 'H' })
+        CREATE (I:Shop { name: 'I' })
+        CREATE (A)-[:way { minutes: 90, km: 10 }]->(B)
+        CREATE (B)-[:way { minutes: 80, km: 9 }]->(C)
+        CREATE (C)-[:way { minutes: 75, km: 8 }]->(I)
+        CREATE (A)-[:way { minutes: 55, km: 6 }]->(D)
+        CREATE (D)-[:way { minutes: 35, km: 5 }]->(E)
+        CREATE (D)-[:way { minutes: 30, km: 4 }]->(B)
+        CREATE (E)-[:way { minutes: 10, km: 2 }]->(I)
+        CREATE (A)-[:way { minutes: 60, km: 7 }]->(F)
+        CREATE (F)-[:way { minutes: 270, km: 20 }]->(G)
+        CREATE (F)-[:way { minutes: 7, km: 1 }]->(E)
+        CREATE (G)-[:way { minutes: 40, km: 5 }]->(H)
+        CREATE (H)-[:way { minutes: 20, km: 2 }]->(I)
+        """)
+        
+# Основная программа
+if __name__ == "__main__":
+    # Aura запросы используют зашифрованное соединение с использованием схемы URI "neo4j+s"
+    uri = "neo4j+s://.....здесь подключение к вашему экземпляру Neo4j........."
+    user = "....здесь ваш пользователь......"
+    password = "........здесь пароль вашего пользователя.........."
+    # Создание экземпляра класса, передача параметров для инициализации драйвера Neo4j
+    app = App(uri, user, password)
+    # Вызов метода класса для создания графа
+    app.create_graph()
+    # Закрытие соединения с базой данных Neo4j
+    app.close()
+
+##############################################ячейка №3 в Google Colab - поиск и визуализация кратчайшего пути между двумя точками###################################
+# Определение класса
+class App:
+
+    # Конструктор класса
+    def __init__(self, uri, user, password):
+        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+
+    # Метод класса для закрытия соединения с базой данных Neo4j
+    def close(self):
+        # Don't forget to close the driver connection when you are finished with it
+        self.driver.close()
+
+    # Метод для поиска кратчайшего пути между двумя узлами графа
+    def find_shortest_paths(self, from_node, to_node):
+        with self.driver.session() as session:
+            result = session.run("""
+                MATCH (from:{from_label} {{ name: $from_name }}), (to:{to_label} {{ name: $to_name }}), 
+                      path = (from)-[*]->(to) 
+                RETURN distinct nodes(path) AS shortestPath, 
+                    length(path),  
+                    min(reduce(km = 0, r in relationships(path) | km+r.km)) AS totalDistance,   
+                    min(reduce(minutes = 0, r in relationships(path) | minutes+r.minutes)) AS totalTime
+                ORDER BY length(path), totalTime, totalDistance
+            """.format(from_label=from_node['label'], to_label=to_node['label']),
+            from_name=from_node['name'], to_name=to_node['name']) # запрос к БД
+
+            result_list = list(result) # полученный результат в виде списка
+            result.consume()  # добавляем эту строку, чтобы потреблять все результаты запроса
+
+            paths = [] # список для хранения путей между узлами графа
+            if result_list:
+                for r in result_list:
+                    path = r['shortestPath']
+                    nodes = [p['name'] for p in path]
+                    distance = r['totalDistance']
+                    time = r['totalTime']
+
+                    for i in range(len(nodes)-1):
+                        source = nodes[i]
+                        target = nodes[i+1]
+                        paths.append({'Source': source, 'Target': target, 'Distance': distance, 'Time': time})
+                    
+                    df = pd.DataFrame(paths)
+                    df = df.drop_duplicates() # удаление дубликатов
+
+                    graph=nx.DiGraph()
+                    graph.add_weighted_edges_from(df[['Source', 'Target', 'Distance']].values) # добавление весов на каждое ребро графа
+
+                    # добавляем атрибут 'Time' к каждому ребру графа
+                    nx.set_edge_attributes(graph, df.set_index(['Source', 'Target'])['Time'].to_dict(), 'Time')
+                    pos = nx.spring_layout(graph, k=1000)
+                    edges = [(u, v) for (u, v, d) in graph.edges(data=True) if d['weight'] > 1]
+
+                    nx.draw_networkx_nodes(graph, pos, node_size=500)
+                    nx.draw_networkx_labels(graph, pos)
+                    nx.draw_networkx_edges(graph, pos, edgelist=edges, edge_color='b', arrows=True)
+
+                    plt.show() # вывод графа с найденным путем
+
+                    return print('Самый короткий путь между точками: ', nodes, 'расстояние ', distance, ' км, время', time, ' минут') #вывод результата
+            else:
+                print("Путей между этими точками не найдено")
+                return pd.DataFrame()
+      
+# Основная программа
+if __name__ == "__main__":
+    # Aura запросы используют зашифрованное соединение с использованием схемы URI "neo4j+s"
+    uri = "neo4j+s://.....здесь подключение к вашему экземпляру Neo4j........."
+    user = "....здесь ваш пользователь......"
+    password = "........здесь пароль вашего пользователя.........."
+    # Создание экземпляра класса, передача параметров для инициализации драйвера Neo4j
+    app = App(uri, user, password)
+    # Вызов метода класса для поиска кратчайшего пути между начальным и конечным узлом
+    from_node = {'name': 'D', 'label': 'Store'} #начальный узел
+    to_node = {'name': 'I', 'label': 'Shop'} #конечный узел
+    result = app.find_shortest_paths(from_node, to_node)
+    print(result)
+    # Закрытие соединения с базой данных Neo4j
+    app.close()
