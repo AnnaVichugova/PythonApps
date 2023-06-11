@@ -1,0 +1,87 @@
+####################################ячейка в Google Colab №1 - установка и импорт библиотек###########################################
+#установка библиотек
+!pip install Faker
+
+#импорт модулей 
+import networkx as nx
+import matplotlib.pyplot as plt
+import pandas as pd
+import random
+from faker import Faker
+from faker.providers.address.ru_RU import Provider
+
+####################################ячейка в Google Colab №2 - создание и анализ графа ###########################################
+#Импорт и настройка генератора случайных данных Faker.
+fake = Faker('ru_RU')
+fake.add_provider(Provider)
+
+#Генерация данных и создание датафрейма вершин.
+# создаем пустой список для хранения сгенерированных данных
+data1 = []
+
+# генерируем данные и добавляем их в список
+for i in range(20):
+    k=random.randint(0, 1)
+    if k==1 :
+       name = fake.company()
+    else :
+       name = fake.name()
+    bank_account = fake.checking_account()
+    data1.append((i, name, bank_account))
+
+    # создаем датафрейм вершин из списка данных
+v = pd.DataFrame(data1, columns=['id', 'Client', 'Bank Account'])
+
+print("\nКлиенты")
+print(v)
+
+# создаем пустой список для хранения сгенерированных данных
+data2 = []
+
+# генерируем данные и добавляем их в список
+for i in range(40):
+    src = random.randint(0, 19)
+    dst = random.randint(0, 19)
+    summa = random.randint(0, 10000)
+    data2.append((src, dst, summa))
+
+# создаем датафрейм связей из списка данных
+e = pd.DataFrame(data2, columns=['src', 'dst', 'summa'])
+
+print("\nТранзакции")
+print(e)
+
+# генерируем цвета для каждой точки
+colors = [fake.color() for i in range(nx_g.number_of_nodes())]
+
+# рисуем граф
+pos = nx.spring_layout(nx_g)
+nx.draw(nx_g, pos, with_labels=True, node_size=600, node_color=colors, font_size=6)
+nx.draw_networkx_labels(nx_g, pos, label_dict, font_size=6)
+
+# добавляем метки к ребрам графа
+edge_labels = {(row['src'], row['dst']): row['summa'] for index, row in e.iterrows()}
+nx.draw_networkx_edge_labels(nx_g, pos, edge_labels=edge_labels, font_size=6)
+
+#вывод графа
+plt.show()
+
+# Находим сообщества в графе методом Girvan–Newman
+communities_generator = nx.community.girvan_newman(nx_g)
+top_level_communities = next(communities_generator)
+next_level_communities = next(communities_generator)
+
+# Выводим сообщества в алфавитном порядке
+print("\nВ этом наборе клиентов найдены следующие сообщества:")
+for next_level_community in next_level_communities:
+  print(next_level_community)
+
+# Находим случайные вершины и пути между ними
+src = random.randint(0, 19)
+dst = random.randint(0, 19)
+paths = list(nx.shortest_simple_paths(nx_g, src, dst))
+
+# Выводим найденные пути
+print("\nМежду клиентом ", src, "и клиентом ", dst, " найдены пути проведения денег:")
+for path in paths:
+    print(path)
