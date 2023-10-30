@@ -1,0 +1,61 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу просмотра перечня поставщиков
+%%writefile templates/provider.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Поставщики товаров интернет-магазина</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+</head>
+<body>
+    <h1>Поставщики товаров интернет-магазина</h1>
+          <table>
+            <tr>
+                <td>
+                     <a href='/login'>Войти в ЛК</a></td>
+                </td>
+                <td>
+                     <a href='/product'>Каталог товаров</a>
+                </td>
+                <td>
+                     <a href='/provider'>Список поставщиков</a>
+                </td>
+                <td>
+                  <a href='/new_provider'>Добавить поставщика</a>
+                </td>
+                <td>
+                     <a href='/order'>Заказы</a>
+                </td>
+            </tr>
+          </table>
+    <table>
+        <thead>
+            <tr>
+                <th>Название </th>
+                <th>Телефон</th>
+                <th>Емейл</th>
+                <th>Адрес</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for provider in providers %}
+            <tr>
+                <td>{{ provider.name }}</td>
+                <td>{{ provider.phone }}</td>
+                <td>{{ provider.email }}</td>
+                <td>{{ provider.address }}</td>
+                <td>
+                <form method="POST" action="/provider/{{ provider.id }}">
+                <button value="{{ provider.id }}" type="submit">Изменить</button>
+                </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
