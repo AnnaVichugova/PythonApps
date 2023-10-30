@@ -1,0 +1,90 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу изменения товара
+%%writefile templates/update_product.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Изменение поставщика</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+</head>
+<body>
+    <h1>Изменение товара</h1>
+    <table>
+    <tr>
+    <td>
+    <form id="form" method="POST" action="/product/{{ product.id }}" onSubmit="myFunctionName(); return false">
+      <input type="hidden" name="_method" value="PUT">
+        <label for="name">Название:</label>
+        <input type="text" class="form-control" id="name" placeholder="название товара" name="name" value="{{ product.name }}"><br><br>
+        <label for="provider">Поставщик:</label>
+        <input type="number" class="form-control" id="provider" placeholder="поставщик товара" name="provider" value="{{ product.provider }}"><br><br>
+        <label for="price">Цена:</label>
+        <input type="number" step="0.01" class="form-control" id="price" placeholder="цена товара" name="price" value="{{ product.price }}"><br><br>
+        <label for="quantity">Количество:</label>
+        <input type="number" class="form-control" id="quantity" placeholder="количество товара" name="quantity" value="{{ product.quantity }}"><br><br>
+        <button type='button' id='change-button'>Изменить</button>
+    </form>
+    </td>
+    <td>
+    <button id='delete-button'>Удалить</button>
+    </td>
+    </tr>
+    </table>
+    <img src="{{ url_for('static', filename='backpic.png') }}" style="display: block; margin-top: 20px;">
+	<script>
+   $(document).ready(function(){
+
+	  $("#delete-button").on("click", () => {
+     $.ajax({
+      url: "/product/{{ product.id }}",
+      method: "DELETE",
+      headers: {
+      "X-my": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    success : function () {
+      window.location.href = "/product";
+    }
+    });
+    });
+
+    $("#change-button").on("click", () => {
+  $.ajax({
+
+    url: "/product/{{ product.id }}",
+    method: "PUT",
+	data:$("#form").serialize(),
+    headers: {
+      "X-my": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    success : function () {
+      window.location.href = "/product";
+    },
+error: function (jqXHR, exception) {
+	if (jqXHR.status === 0) {
+		alert('Not connect. Verify Network.');
+	} else if (jqXHR.status == 404) {
+		alert('Requested page not found (404).');
+	} else if (jqXHR.status == 500) {
+		alert('Internal Server Error (500).');
+	} else if (exception === 'parsererror') {
+		alert('Requested JSON parse failed.');
+	} else if (exception === 'timeout') {
+		alert('Time out error.');
+	} else if (exception === 'abort') {
+		alert('Ajax request aborted.');
+	} else {
+		alert('Uncaught Error. ' + jqXHR.responseText);
+	}}
+});
+});
+    });
+	</script>
+
+</body>
+</html>
