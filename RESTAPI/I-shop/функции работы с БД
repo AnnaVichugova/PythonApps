@@ -1,0 +1,370 @@
+#############################новая ячейка в Google Colab###########################################################
+# Строка подключения к БД
+global connection_string
+connection_string='postgres://my_database' #сюда вставлять СВОЮ строку подключения к СВОЕЙ БД
+conn = psycopg2.connect(connection_string)
+
+# Функция получения всех записей из таблицы товаров для отображения каталога
+def read_product_db(conn):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT product.id, product.name, provider.name, product.price, product.quantity FROM product JOIN provider on provider.id=product.provider ORDER BY product.id DESC")
+        results = cursor.fetchall()
+        products = []
+        for row in results:
+            Product = {"id":row[0], "name": row[1], "provider": row[2], "price": row[3], "quantity": row[4]}
+            products.append(Product)
+        return products
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении товаров из базы данных'
+    finally:
+        cursor.close()
+
+# Функция получения всех записей из таблицы заказов для отображения списка
+def read_order_db(conn):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT orders.id, customer.name, order_states.name, delivery.address, orders.sum, orders.date FROM orders JOIN customer on customer.id=orders.customer JOIN order_states on order_states.id=orders.state JOIN delivery on delivery.id=orders.delivery ORDER BY orders.id DESC")
+        results = cursor.fetchall()
+        orders = []
+        for row in results:
+            Order = {"id":row[0], "customer": row[1], "state": row[2], "delivery": row[3], "sum": row[4], "date": row[5]}
+            orders.append(Order)
+        return orders
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении заказов из базы данных'
+    finally:
+        cursor.close()
+
+# Функция получения всех записей из таблицы поставщиков для отображения списка
+def read_provider_db(conn):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT provider.id, provider.name, provider.phone, provider.email, provider.address FROM provider ORDER BY provider.id DESC")
+        results = cursor.fetchall()
+        providers = []
+        for row in results:
+            Provider = {"id":row[0], "name": row[1], "phone": row[2], "email": row[3], "address": row[4]}
+            providers.append(Provider)
+        return providers
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении поставщиков из базы данных'
+    finally:
+        cursor.close()
+
+# Функция поиска пользователя в базе данных
+def find_user_in_db(conn, login, password, role):
+    cursor = conn.cursor()
+    try:
+      cursor.execute("SELECT * FROM users WHERE login = %s AND password = %s AND role=%s", (login, password, role))
+      result = cursor.fetchone()
+      if result:
+        user = {"id": result[0], "login": result[1], "password": result[2], "role": result[3]}
+        return user
+      else:
+        return None
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении пользователя из базы данных'
+    finally:
+        cursor.close()
+
+# Функция регистрации пользователя (добавления записи в таблицу users)
+def add_user_to_db(conn, user_data):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT MAX(id) FROM users")
+        id = cursor.fetchone()[0] + 1
+        cursor.execute("INSERT INTO users (id, login, password, role) VALUES (%s, %s, %s, %s)", (id, user_data['login'], user_data['password'], user_data['role']))
+        conn.commit()
+        user = {"id": id, "login": user_data['login'], "password": user_data['password'], "role": user_data['role']}
+        return user
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+
+# Функция генерации JWT-токена
+def generate_jwt_token(user_id, role, expiration_minutes):
+  if role=='manager':
+    # Задаем время жизни токена
+    expiration_time = datetime.utcnow() + timedelta(minutes=expiration_minutes)
+
+    # Создаем словарь с данными пользователя, которые будут включены в токен
+    payload = {
+        "user_id": user_id,
+         "role": role,
+        "exp": expiration_time
+    }
+
+    # Генерируем JWT токен с помощью секретного ключа
+    token = jwt.encode(payload, secret_key, algorithm="HS256")
+    return token
+
+# Функция поиска токена в базе данных
+def find_token_in_db(conn, sysuser):
+  cursor = conn.cursor()
+  try:
+    cursor.execute("SELECT token FROM jwts WHERE sysuser = %s::integer", (sysuser,))
+    token = cursor.fetchone()
+    print('find_token_in_db ', token)
+    return token
+  except:
+        traceback.print_exc()
+        return 'Ошибка при получении токена из базы данных'
+  finally:
+        cursor.close()
+
+# Функция извлечения данных пользователя из токена
+def extract_user_data_from_token(token):
+    try:
+        # Декодируем токен для получения данных пользователя
+        decoded_token = jwt.decode(token, secret_key, algorithms=["HS256"])
+        user_id = decoded_token["user_id"]
+        sysuser = user_id["id"]
+        if find_token_in_db(conn, sysuser):
+          return decoded_token
+    except jwt.exceptions.ExpiredSignatureError:
+        print("Время жизни токена истекло, надо снова войти в систему")
+        response = make_response(render_template('login.html'), 401)
+        return response
+    except jwt.exceptions.DecodeError:
+        return None
+
+# Функция записи JWT-токена в таблицу jwts
+def add_JWT_to_db(conn, JWTtime, token, sysuser):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT MAX(id) FROM jwts")
+        id = cursor.fetchone()[0] + 1
+        cursor.execute("INSERT INTO jwts (id, published, token, sysuser) VALUES (%s, %s, %s, %s)", (id, JWTtime, token, sysuser))
+        conn.commit()
+        return token
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+
+# Функция добавления товара в таблицу product
+def add_product_to_db(conn, name, provider, price, quantity):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT MAX(id) FROM product")
+        id = cursor.fetchone()[0] + 1
+        cursor.execute("INSERT INTO product (id, name, provider, price, quantity) VALUES (%s::integer, %s, %s::integer, %s::double precision, %s::integer)", (id, name, provider, price, quantity))
+        conn.commit()
+        product = {"id":id, "name": name, "provider": provider, "price": price, "quantity": quantity}
+        return product
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+
+# Функция добавления поставщика в таблицу provider
+def add_provider_to_db(conn, name, phone, email, address):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT MAX(id) FROM provider")
+        id = cursor.fetchone()[0] + 1
+        conn.commit()
+        cursor.execute("INSERT INTO provider (id, name, phone, email, address) VALUES (%s::integer, %s, %s, %s, %s)", (id, name, phone, email, address))
+        conn.commit()
+        provider = {"id":id, "name": name, "phone": phone, "email": email, "address": address}
+        return provider
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+
+# Функция поиска поставщика в базе данных
+def get_provider_from_db(conn, provider_id):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM provider WHERE id = (%s::integer)", (provider_id,))
+        provider_data = cursor.fetchone()
+        if provider_data:
+            provider = {
+                "id": provider_data[0],
+                "name": provider_data[1],
+                "phone": provider_data[2],
+                "email": provider_data[3],
+                "address": provider_data[4]
+            }
+            return provider
+        else:
+            return None
+    except Exception as e:
+        traceback.print_exc()
+        return None
+    finally:
+        cursor.close()
+
+# Функция обновления поставщика в базе данных
+def update_provider_in_db(conn, id, name, phone, email, address):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE provider SET name = %s, phone = %s, email = %s, address = %s WHERE id = %s::integer", (name, phone, email, address, id))
+        conn.commit()
+        if cursor.rowcount > 0:
+            provider = {
+                "id": id,
+                "name": name,
+                "phone": phone,
+                "email": email,
+                "address": address
+            }
+            return provider
+        else:
+            return None
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+
+# Функция удаления поставщика в базе данных
+def delete_provider_from_db(conn, provider_id):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM provider WHERE id = (%s::integer)", (provider_id,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+
+# Функция поиска товара в базе данных
+def get_product_from_db(conn, product_id):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM product WHERE id = (%s::integer)", (product_id,))
+        product_data = cursor.fetchone()
+        if product_data:
+            product = {
+                "id": product_data[0],
+                "name": product_data[1],
+                "provider": product_data[2],
+                "price": product_data[3],
+                "quantity": product_data[4]
+            }
+            print('get_product_from_db', product)
+            return product
+        else:
+            return None
+    except Exception as e:
+        traceback.print_exc()
+        return None
+    finally:
+        cursor.close()
+
+# Функция обновления товара в базе данных
+def update_product_in_db(conn, id, name, provider, price, quantity):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE product SET name = %s, provider = %s::integer, price = %s::double precision, quantity = %s::integer WHERE id = %s::integer", (name, provider, price, quantity, id))
+        conn.commit()
+        if cursor.rowcount > 0:
+            product = {
+                "id": id,
+                "name": name,
+                "provider": provider,
+                "price": price,
+                "quantity": quantity
+            }
+            print("update_product_in_db", product)
+            return product
+        else:
+            return None
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+
+# Функция удаления товара в базе данных
+def delete_product_from_db(conn, product_id):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM product WHERE id = (%s::integer)", (product_id,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+
+# Функция поиска заказа в базе данных
+def get_order_from_db(conn,order_id):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT orders.id, customer.name, order_states.name, delivery.address, orders.sum, orders.date FROM orders JOIN customer on customer.id=orders.customer JOIN order_states on order_states.id=orders.state JOIN delivery on delivery.id=orders.delivery WHERE orders.id = (%s::integer)", (order_id,))
+        order_data = cursor.fetchone()
+        if order_data:
+            order = {
+                "id": order_data[0],
+                "customer": order_data[1],
+                "state": order_data[2],
+                "delivery":order_data[3],
+                "sum": order_data[4],
+                "date": order_data[5]
+            }
+            return order
+        else:
+            return None
+    except Exception as e:
+        traceback.print_exc()
+        return None
+    finally:
+        cursor.close()
+
+# Функция обновления заказа в базе данных
+def update_order_in_db(conn, id, state):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE orders SET state = %s::integer WHERE id = (%s::integer)", (state, id))
+        conn.commit()
+        cursor.execute("SELECT * FROM orders WHERE id = (%s::integer)", (id,))
+        order_data = cursor.fetchone()
+        if order_data:
+            order = {
+                "id": order_data[0],
+                "customer": order_data[1],
+                "state": order_data[2],
+                "delivery":order_data[3],
+                "sum": order_data[4],
+                "date": order_data[5]
+            }
+            print("update_order_in_db:", order)
+            return order
+        else:
+            return None
+    except Exception as e:
+        traceback.print_exc()
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
