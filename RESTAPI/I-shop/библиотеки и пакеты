@@ -21,3 +21,7 @@ import threading
 import tkinter as tk
 import jwt
 from datetime import date, datetime, timedelta
+
+# создаем директории для шаблонов и статических файлов
+!mkdir templates
+!mkdir static
