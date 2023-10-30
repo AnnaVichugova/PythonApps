@@ -1,0 +1,99 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу изменения заказа менеджером
+%%writefile templates/update_order.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Изменение поставщика</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+</head>
+<body>
+    <h1>Изменение заказа</h1>
+    <table>
+
+            <tr>
+                <td>Номер </td>
+                <td>{{ order.id }}</td>
+            </tr>
+            <tr>
+                <td>Клиент</td>
+                <td>{{ order.customer }}</td>
+            </tr>
+            <tr>
+                <td>Сумма</td>
+                <td>{{ order.sum }}</td>
+            </tr>
+            <tr>
+                <td>Дата создания</td>
+                <td>{{ order.date }}</td>
+            </tr>
+            <tr>
+                <td>Доставка</td>
+                <td>{{ order.delivery }}</td>
+            </tr>
+            <tr>
+               </td>
+                <td>Текущее состояние</td>
+                <td>{{ order.state }}</td>
+            </tr>
+    </tr>
+    </table>
+
+    <form id="form" method="POST" action="/order/{{ order.id }}" onSubmit="myFunctionName(); return false">
+      <input type="hidden" name="_method" value="PUT">
+        <div class="form-group">
+        <label for="state">Новое состояние:</label>
+        <select id="state" name="state">
+        <option value=2>в обработке</option>
+        <option value=3>собран</option>
+        <option value=5>отменен магазином</option>
+        </select>
+        </div>
+       <button type='button' id='change-button'>Изменить</button>
+    </form>
+
+    <img src="{{ url_for('static', filename='backpic.png') }}" style="display: block; margin-top: 20px;">
+	<script>
+   $(document).ready(function(){
+
+    $("#change-button").on("click", () => {
+  $.ajax({
+
+    url: "/order/{{ order.id }}",
+    method: "PUT",
+	data:$("#form").serialize(),
+    headers: {
+      "X-my": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    success : function () {
+      window.location.href = "/order";
+    },
+error: function (jqXHR, exception) {
+	if (jqXHR.status === 0) {
+		alert('Not connect. Verify Network.');
+	} else if (jqXHR.status == 404) {
+		alert('Requested page not found (404).');
+	} else if (jqXHR.status == 500) {
+		alert('Internal Server Error (500).');
+	} else if (exception === 'parsererror') {
+		alert('Requested JSON parse failed.');
+	} else if (exception === 'timeout') {
+		alert('Time out error.');
+	} else if (exception === 'abort') {
+		alert('Ajax request aborted.');
+	} else {
+		alert('Uncaught Error. ' + jqXHR.responseText);
+	}}
+});
+});
+    });
+	</script>
+
+</body>
+</html>
