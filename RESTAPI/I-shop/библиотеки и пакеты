@@ -1,0 +1,23 @@
+#############################новая ячейка в Google Colab###########################################################
+# Установка необходимых библиотек
+!pip install flask
+!pip install pyngrok
+!pip install flask-ngrok
+!pip install pydantic[email]
+
+# Импорт модулей и библиотек
+import traceback
+import threading
+
+from flask_ngrok import run_with_ngrok
+from flask import Flask, session, jsonify, request, render_template, Response, make_response, redirect
+from pydantic import BaseModel, EmailStr, ValidationError
+from enum import Enum
+from typing import Union, Optional, List
+import os
+import psycopg2
+import threading
+
+import tkinter as tk
+import jwt
+from datetime import date, datetime, timedelta
