@@ -1,0 +1,59 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу просмотра перечня заказов
+%%writefile templates/order.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Заказы клиентов интернет-магазина</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+</head>
+<body>
+    <h1>Заказы интернет-магазина</h1>
+          <table>
+            <tr>
+                <td>
+                     <a href='/login'>Войти в ЛК</a></td>
+                </td>
+                <td>
+                     <a href='/product'>Каталог товаров</a>
+                </td>
+                <td>
+                     <a href='/provider'>Список поставщиков</a>
+                </td>
+            </tr>
+          </table>
+    <table>
+        <thead>
+            <tr>
+                <th>Номер </th>
+                <th>Клиент</th>
+                <th>Состояние</th>
+                <th>Доставка</th>
+                <th>Сумма</th>
+                <th>Дата создания</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td>{{ order.id }}</td>
+                <td>{{ order.customer }}</td>
+                <td>{{ order.state }}</td>
+                <td>{{ order.delivery }}</td>
+                <td>{{ order.sum }}</td>
+                <td>{{ order.date }}</td>
+                <td>
+                <form method="POST" action="/order/{{ order.id }}">
+                <button value="{{ order.id }}" type="submit">Изменить</button>
+                </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
