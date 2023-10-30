@@ -1,0 +1,13 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем таблицу стилей для HTML-страниц
+%%writefile static/styles.css
+/* styles.css */
+
+table {
+  border-collapse: collapse;
+}
+
+td {
+  padding: 10px;
+  border: 1px solid blue;
+}
