@@ -1,0 +1,57 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу добавления нового поставщика
+%%writefile templates/new_provider.html
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Добавление поставщика</title>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+   </head>
+   <body>
+      <div class="container mt-3">
+        <h2>Добавление поставщика</h2>
+          <table>
+            <tr>
+                <td>
+                     <a href='/login'>Войти в ЛК</a></td>
+                </td>
+                <td>
+                     <a href='/product'>Каталог товаров</a>
+                </td>
+                <td>
+                     <a href='/provider'>Список поставщиков</a>
+                </td>
+                <td>
+                     <a href='/order'>Заказы</a>
+                </td>
+            </tr>
+          </table>
+         <form method="POST" action="/provider">
+            <div class="form-group">
+               <label for="name">Название:</label>
+               <input type="text" class="form-control" id="name" placeholder="название поставщика" name="name" required>
+            </div>
+            <div class="form-group">
+               <label for="phone">Телефон:</label>
+               <input type="text" class="form-control" id="phone" placeholder="телефон поставщика" name="phone" required>
+            </div>
+            <div class="form-group">
+               <label for="email">Емейл:</label>
+               <input type="email" class="form-control" id="email" placeholder="email поставщика" name="email" required>
+            </div>
+            <div class="form-group">
+               <label for="address">Адрес:</label>
+               <input type="text" class="form-control" id="address" placeholder="адрес поставщика" name="address" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить поставщика</button>
+         </form>
+      </div>
+       <img src="{{ url_for('static', filename='backpic.png') }}" style="display: block; margin-top: 20px;">
+   </body>
+</html>
