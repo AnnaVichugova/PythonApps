@@ -1,0 +1,90 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу изменения поставщика
+%%writefile templates/update_provider.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Изменение поставщика</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+</head>
+<body>
+    <h1>Изменение поставщика</h1>
+    <table>
+    <tr>
+    <td>
+    <form id="form" method="POST" action="/provider/{{ provider.id }}" onSubmit="myFunctionName(); return false">
+      <input type="hidden" name="_method" value="PUT">
+        <label for="name">Название:</label>
+        <input type="text" id="name" name="name" value="{{ provider.name }}"><br><br>
+        <label for="phone">Телефон:</label>
+        <input type="text" id="phone" name="phone" value="{{ provider.phone }}"><br><br>
+        <label for="email">Email:</label>
+        <input type="text" id="email" name="email" value="{{ provider.email }}"><br><br>
+        <label for="address">Адрес:</label>
+        <input type="text" id="address" name="address" value="{{ provider.address }}"><br><br>
+        <button type='button' id='change-button'>Изменить</button>
+    </form>
+    </td>
+    <td>
+    <button id='delete-button'>Удалить</button>
+    </td>
+    </tr>
+    </table>
+    <img src="{{ url_for('static', filename='backpic.png') }}" style="display: block; margin-top: 20px;">
+	<script>
+   $(document).ready(function(){
+
+	  $("#delete-button").on("click", () => {
+     $.ajax({
+      url: "/provider/{{ provider.id }}",
+      method: "DELETE",
+      headers: {
+      "X-my": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    success : function () {
+      window.location.href = "/provider";
+    }
+    });
+    });
+
+    $("#change-button").on("click", () => {
+  $.ajax({
+
+    url: "/provider/{{ provider.id }}",
+    method: "PUT",
+	data:$("#form").serialize(),
+    headers: {
+      "X-my": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    success : function () {
+      window.location.href = "/provider";
+    },
+error: function (jqXHR, exception) {
+	if (jqXHR.status === 0) {
+		alert('Not connect. Verify Network.');
+	} else if (jqXHR.status == 404) {
+		alert('Requested page not found (404).');
+	} else if (jqXHR.status == 500) {
+		alert('Internal Server Error (500).');
+	} else if (exception === 'parsererror') {
+		alert('Requested JSON parse failed.');
+	} else if (exception === 'timeout') {
+		alert('Time out error.');
+	} else if (exception === 'abort') {
+		alert('Ajax request aborted.');
+	} else {
+		alert('Uncaught Error. ' + jqXHR.responseText);
+	}}
+});
+});
+    });
+	</script>
+
+</body>
+</html>
