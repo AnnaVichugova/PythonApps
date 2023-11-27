@@ -128,6 +128,7 @@ def find_token_in_db(conn, sysuser):
 
 # Функция извлечения данных пользователя из токена
 def extract_user_data_from_token(token):
+    conn = psycopg2.connect(connection_string)      
     try:
         # Декодируем токен для получения данных пользователя
         decoded_token = jwt.decode(token, secret_key, algorithms=["HS256"])
