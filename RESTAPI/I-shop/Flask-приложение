@@ -15,7 +15,23 @@ app = Flask(__name__)
 # Запуск приложения с использованием ngrok
 run_with_ngrok(app)
 
-# set the secret key для кодирования сессии:
+#####################################################################################
+#Если flask-ngrok капризничает, вместо run_with_ngrok(app) выполнить ячейку 
+!ngrok config add-authtoken ваш_токен_без_кавычек
+#и в коде приложения вписать строки
+os.environ["FLASK_DEBUG"] = "development"
+app = Flask(__name__)
+port = 5000
+#Setting an auth token allows us to open multiple tunnels at the same time
+ngrok.set_auth_token("2JwGmDxUrtNUvvZaZBWjEsdq3v2_4RPKaTBVoivnBrnm3bpcE")
+# Open a ngrok tunnel to the HTTP server
+public_url = ngrok.connect(port)
+print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:{}\"".format(public_url, port))
+# Update any base URLs to use the public ngrok URL
+app.config["BASE_URL"] = public_url
+
+####################################################################
+# установить secret key для кодирования сессии:
 app.secret_key = secret_key
 
 # Обработчик запросов по корневому адресу
@@ -514,3 +530,6 @@ def order_ops(id):
 # Запуск приложения
 if __name__ == '__main__':
     app.run()
+
+#Если flask-ngrok капризничает, использовать  следующую строку
+threading.Thread(target=app.run, kwargs={"use_reloader": False}).start()
