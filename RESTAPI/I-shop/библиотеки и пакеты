@@ -2,17 +2,18 @@
 # Установка необходимых библиотек
 !pip install flask
 !pip install pyngrok
-!pip install flask-ngrok
+!pip install flask-ngrok #Если flask-ngrok капризничает, используем pyngrok и from pyngrok import ngrok
 !pip install pydantic[email]
 
 # Импорт модулей и библиотек
 import traceback
 import threading
 
-from flask_ngrok import run_with_ngrok
+from flask_ngrok import run_with_ngrok #Если flask-ngrok капризничает, не будем через нее запускать, тогда эта строка не нужна
 from flask import Flask, session, jsonify, request, render_template, Response, make_response, redirect
 from pydantic import BaseModel, EmailStr, ValidationError
 from enum import Enum
+from pyngrok import ngrok #Если flask-ngrok капризничает
 from typing import Union, Optional, List
 import os
 import psycopg2
