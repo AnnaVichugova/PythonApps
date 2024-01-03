@@ -1,0 +1,515 @@
+#############################новая ячейка в Google Colab###########################################################
+os.environ["FLASK_DEBUG"] = "development"
+app = Flask(__name__)
+port = 5000
+#Setting an auth token allows us to open multiple tunnels at the same time
+ngrok.set_auth_token("your_auth_token") #ваш аутентификационный токен ngrok взять здесь: https://dashboard.ngrok.com/login 
+# Open a ngrok tunnel to the HTTP server
+public_url = ngrok.connect(port)
+print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:{}\"".format(public_url, port))
+# Update any base URLs to use the public ngrok URL
+app.config["BASE_URL"] = public_url
+
+########################################################################################
+# Задаем секретный ключ для подписи JWT
+secret_key = "SecretKey4JWT" #можно задать другой ключ, какой нравится
+# Задаем время жизни JWT-токена в минутах
+exp_time=45
+
+# установка secret key для клиентской сессии (JWT):
+app.secret_key = secret_key
+
+# Обработчик запросов по корневому адресу
+@app.route('/')
+def hello():
+    return render_template('index.html')
+
+# Обработчик запросов на получение списка товаров:
+@app.route('/product', methods=['GET', 'POST'])
+def get_product():
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if request.method == 'GET':
+            products = read_product_db(conn)
+            return render_template('product.html', products=products)
+        else:
+            if request.content_type == 'application/json':
+               new_product = request.json
+            elif request.form:
+              new_product = request.form
+
+            name = new_product.get('name')
+            provider = new_product.get('provider')
+            price = new_product.get('price')
+            quantity = new_product.get('quantity')
+
+            # Добавление нового товара в базу данных
+            product = add_product_to_db(conn, name, provider, price, quantity)
+            return redirect('/product')
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при получении товаров из базы данных: {e}'
+    finally:
+        conn.close()
+
+# Обработчик запросов на добавление нового товара:
+@app.route('/new_product', methods=['POST', 'GET'])
+def add_product():
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                # Проверяем, что пользователь имеет роль "manager"
+                if user_data['role'] == 'manager':
+                    if request.method == 'POST':
+                      response = make_response(render_template('product.html'), 200)
+                      return response
+                    else:
+                      return render_template('new_product.html')
+                else:
+                    print("У вас нет доступа к этой странице")
+                    response = make_response(render_template('login.html'), 403)
+                    return response
+            else:
+                print("Неверный токен")
+                response = make_response(render_template('login.html'), 403)
+                return response
+        else:
+            print("Требуется авторизация")
+            response = make_response(render_template('login.html'), 401)
+            return response
+            #return redirect(url_for('login'))
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при обработке запроса: {e}'
+    finally:
+       conn.close()
+
+# Обработчик запросов на получение списка поставщиков:
+@app.route('/provider', methods=['GET', 'POST'])
+def get_provider():
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if request.method == 'GET':
+            providers = read_provider_db(conn)
+            return render_template('provider.html', providers=providers)
+        else:
+            if request.content_type == 'application/json':
+             new_provider = request.json
+            elif request.form:
+             new_provider = request.form
+
+            name = new_provider.get('name')
+            phone = new_provider.get('phone')
+            email = new_provider.get('email')
+            address = new_provider.get('address')
+
+            # Добавление нового товара в базу данных
+            provider = add_provider_to_db(conn, name, phone, email, address)
+            return redirect('/provider')
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при получении поставщиков из базы данных: {e}'
+    finally:
+       conn.close()
+
+
+# Обработчик запросов на добавление поставщика:
+@app.route('/new_provider', methods=['POST', 'GET'])
+def add_provider():
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+    print('token ', token)
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                # Проверяем, что пользователь имеет роль "manager"
+                if user_data['role'] == 'manager':
+                    if request.method == 'POST':
+                      response = make_response(render_template('provider.html'), 200)
+                      return response
+                    else:
+                        return render_template('new_provider.html')
+                else:
+                    print("У вас нет доступа к этой странице")
+                    response = make_response(render_template('login.html'), 403)
+                    return response
+            else:
+                print("Неверный токен")
+                response = make_response(render_template('login.html'), 403)
+                return response
+        else:
+            print("Требуется авторизация")
+            response = make_response(render_template('login.html'), 401)
+            return response
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при обработке запроса: {e}'
+    finally:
+        conn.close()
+
+# Обработчик входа в систему существующего пользователя:
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if request.method == 'POST':
+            if request.content_type == 'application/json':
+                user_data = request.json
+            elif request.form:
+                user_data = request.form
+            login = user_data.get('login')
+            password = user_data.get('password')
+            role = user_data.get('role')
+
+            # Поиск пользователя в базе данных
+            user = find_user_in_db(conn, login, password, role)
+            if user is not None:
+                # Генерация JWT-токена
+              if role =='manager':
+                token = generate_jwt_token(user, role, exp_time)
+                sysuser=user['id']
+                print('token', token)
+                # Запись JWT-токена в таблицу jwts
+                add_JWT_to_db(conn, datetime.utcnow(), token, sysuser)
+                # Добавление токена в заголовок запроса
+                response = make_response(render_template('index.html'), 200)
+                response.set_cookie('token', token)
+                return response
+              else:
+               return render_template('index.html')
+            else:
+                response = make_response(render_template('registration.html'), 401)
+                return response
+ #               return redirect(url_for('registration'))
+  #              return redirect('/registration')
+        else:
+           response = make_response(render_template('login.html'), 200)
+           return response
+           #return redirect('/login')
+    except Exception as e:
+        traceback.print_exc()
+        if request.method == 'POST':
+            return jsonify({"error": f'Ошибка аутентификации пользователя в базу данных: {e}'})
+        else:
+            return jsonify({"error": f'Сервис аутентификации недоступен, попробуйте позже: {e}'})
+    finally:
+      conn.close()
+
+
+# Обработчик регистрации нового пользователя:
+@app.route('/registration', methods=['POST', 'GET'])
+def registration():
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if request.method == 'POST':
+            if request.content_type == 'application/json':
+                user_data = request.json
+            elif request.form:
+                user_data = request.form
+            login = user_data.get('login')
+            password = user_data.get('password')
+            role = user_data.get('role')
+
+            # Регистрация пользователя в базе данных
+            added_user = add_user_to_db(conn, user_data)
+            response = make_response(render_template('login.html'), 201)
+            return response
+#            return redirect('/login')
+        else:
+            response = make_response(render_template('registration.html'), 200)
+            return response
+            #return redirect('/registration')
+    except Exception as e:
+        traceback.print_exc()
+        if request.method == 'POST':
+            return jsonify({"error": f'Ошибка при добавлении пользователя в базу данных: {e}'})
+        else:
+            return jsonify({"error": f'Сервис регистрации недоступен, попробуйте позже: {e}'})
+    finally:
+      conn.close()
+
+# Обработчик изменения поставщика по id:
+@app.route('/provider/<int:id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def provider_ops(id):
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+    print('token ', token)
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+      if token:
+        # Проверяем валидность токена и получаем данные пользователя
+        user_data = extract_user_data_from_token(token)
+        if user_data:
+          # Проверяем, что пользователь имеет роль "manager"
+          if user_data['role'] == 'manager':
+            provider = get_provider_from_db(conn, id)
+            if not provider:
+              return f'Поставщик с ID {id} не найден'
+            else:
+              if request.method == 'PUT':
+                if request.content_type == 'application/json':
+                    updated_provider = request.json
+                elif request.form:
+                    updated_provider = request.form
+                else:
+                    updated_provider = request.args
+
+                if  updated_provider.get('name'):
+                  name = updated_provider.get('name')
+                else:
+                  name = provider['name']
+                if  updated_provider.get('phone'):
+                  phone = updated_provider.get('phone')
+                else:
+                  phone = provider['phone']
+                if  updated_provider.get('email'):
+                  email = updated_provider.get('email')
+                else:
+                  email = provider['email']
+                if  updated_provider.get('address'):
+                  address = updated_provider.get('address')
+                else:
+                  address = provider['address']
+
+                #Обновление данных поставщика в базе данных
+                if update_provider_in_db(conn, id, name, phone, email, address):
+                  return ('', 200)
+              elif request.method == 'DELETE':
+                try:
+                    delete_provider_from_db(conn, id)
+                    response = make_response(render_template('provider.html'), 204)
+                    return response
+                except Exception as e:
+                    traceback.print_exc()
+                    return f'Ошибка при удалении поставщика: {e}'
+                finally:
+                   conn.close()
+              else:
+                provider = get_provider_from_db(conn, id)
+                if provider:
+                    return render_template('update_provider.html', provider=provider)
+                else:
+                    return f'Поставщик с ID {id} не найден'
+          else:
+            print("У вас нет доступа к этой странице")
+            response = make_response(render_template('login.html'), 403)
+            return response
+        else:
+          print("Неверный токен")
+          response = make_response(render_template('login.html'), 401)
+          return response
+      else:
+        print("Требуется авторизация")
+        response = make_response(render_template('login.html'), 401)
+        return response
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при изменении поставщика: {e}'
+    finally:
+        conn.close()
+
+# Обработчик изменения товара по id:
+@app.route('/product/<int:id>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+def product_ops(id):
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+    print('token ', token)
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+      if token:
+        # Проверяем валидность токена и получаем данные пользователя
+        user_data = extract_user_data_from_token(token)
+        if user_data:
+          # Проверяем, что пользователь имеет роль "manager"
+          if user_data['role'] == 'manager':
+            product = get_product_from_db(conn, id)
+            print(product)
+            if not product:
+              return f'Товар с ID {id} не найден'
+            else:
+              if request.method == 'PUT' or request.method == 'PATCH':
+                if request.content_type == 'application/json':
+                    updated_product = request.json
+                elif request.form:
+                    updated_product = request.form
+                else:
+                    updated_product = request.args
+
+                if  updated_product.get('name'):
+                  name = updated_product.get('name')
+                else:
+                  name = product['name']
+                if  updated_product.get('provider'):
+                  provider = updated_product.get('provider')
+                else:
+                  provider = product['provider']
+                if  updated_product.get('price'):
+                  price = updated_product.get('price')
+                else:
+                  price = product['price']
+                if  updated_product.get('quantity'):
+                  quantity = updated_product.get('quantity')
+                else:
+                  quantity = product['quantity']
+
+                #Обновление данных поставщика в базе данных
+                update_product_in_db(conn, id, name, provider, price, quantity)
+                return ('', 200)
+              elif request.method == 'DELETE':
+                try:
+                    delete_product_from_db(conn, id)
+                    response = make_response(render_template('product.html'), 204)
+                    return response
+                except Exception as e:
+                    traceback.print_exc()
+                    return f'Ошибка при удалении товара: {e}'
+                finally:
+                    conn.close()
+              else:
+                product = get_product_from_db(conn, id)
+                if product:
+                    return render_template('update_product.html', product=product)
+                else:
+                    return f'Товар с ID {id} не найден'
+          else:
+            print("У вас нет доступа к этой странице")
+            response = make_response(render_template('login.html'), 403)
+            return response
+        else:
+          print("Неверный токен")
+          response = make_response(render_template('login.html'), 401)
+          return response
+      else:
+        print("Требуется авторизация")
+        response = make_response(render_template('login.html'), 401)
+        return response
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при изменении поставщика: {e}'
+    finally:
+        conn.close()
+
+
+# Обработчик запросов на получение списка заказов:
+@app.route('/order', methods=['GET'])
+def get_order():
+
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+    print('token ', token)
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                # Проверяем, что пользователь имеет роль "manager"
+                if user_data['role'] == 'manager':
+                    orders = read_order_db(conn)
+                    return render_template('order.html', orders=orders)
+                else:
+                    print("Вы не менеджер, просмотр запрещен")
+                    response = make_response(render_template('login.html'), 401)
+                    return response
+            else:
+                print("Надо войти как менеджер")
+                response = make_response(render_template('login.html'), 403)
+                return response
+        else:
+          print("Надо войти в систему")
+          response = make_response(render_template('login.html'), 403)
+          return response
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при получении заказов из базы данных: {e}'
+    finally:
+        conn.close()
+
+
+# Обработчик изменения заказа по id:
+@app.route('/order/<int:id>', methods=['GET', 'POST', 'PUT'])
+def order_ops(id):
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+    print('token ', token)
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+      if token:
+        # Проверяем валидность токена и получаем данные пользователя
+        user_data = extract_user_data_from_token(token)
+        if user_data:
+          # Проверяем, что пользователь имеет роль "manager"
+          if user_data['role'] == 'manager':
+            order = get_order_from_db(conn, id)
+            print(order)
+            if not order:
+              return f'Заказ с ID {id} не найден'
+            else:
+              if request.method == 'PUT':
+                if request.content_type == 'application/json':
+                    updated_order_state = request.json
+                elif request.form:
+                    updated_order_state = request.form
+                else:
+                    updated_order_state = request.args
+
+                if  updated_order_state.get('state'):
+                  state = updated_order_state.get('state')
+                else:
+                  state = order['state']
+
+                #Обновление данных поставщика в базе данных
+                if update_order_in_db(conn, id, state):
+                  return ('', 200)
+              else:
+                order = get_order_from_db(conn, id)
+                if order:
+                    return render_template('update_order.html', order=order)
+                else:
+                    return f'Заказ с ID {id} не найден'
+          else:
+            print("У вас нет доступа к этой странице")
+            response = make_response(render_template('login.html'), 403)
+            return response
+        else:
+          print("Неверный токен")
+          response = make_response(render_template('login.html'), 403)
+          return response
+      else:
+        print("Требуется авторизация")
+        response = make_response(render_template('login.html'), 401)
+        return response
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при изменении поставщика: {e}'
+    finally:
+       conn.close()
+
+
+# Запуск приложения
+threading.Thread(target=app.run, kwargs={"use_reloader": False}).start()
