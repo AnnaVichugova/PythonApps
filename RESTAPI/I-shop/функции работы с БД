@@ -3,6 +3,105 @@
 global connection_string
 connection_string='postgres://my_database' #сюда вставлять СВОЮ строку подключения к СВОЕЙ БД
 
+# Функция поиска товара из таблицы товаров
+def search_product_db(conn, search_product_name, search_product_min_price, search_product_max_price):
+    cursor = conn.cursor()
+    query ="SELECT product.id, product.name, provider.name, product.price, product.quantity FROM product JOIN provider on provider.id=product.provider WHERE TRUE"
+    params = []
+
+    if search_product_name:
+        query += " AND product.name LIKE %s"
+        params.append(search_product_name)
+    if search_product_min_price:
+        query += " AND product.price >= %s"
+        params.append(search_product_min_price)
+    if search_product_max_price:
+        query += " AND product.price <= %s"
+        params.append(search_product_max_price)
+
+    try:
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        products = [{"id": row[0], "name": row[1], "provider": row[2], "price": row[3], "quantity": row[4]} for row in results]
+        return products
+    except Exception as e:
+        traceback.print_exc()
+        return 'Ошибка при получении товаров из базы данных'
+    finally:
+        cursor.close()
+
+
+# Функция поиска поставщиков  из таблицы поставщиков
+def search_provider_db(conn, search_provider_name, search_provider_phone, search_provider_email, search_provider_address):
+    cursor = conn.cursor()
+    query = "SELECT * FROM provider WHERE TRUE"
+    params = []
+
+    if search_provider_name:
+        query += " AND provider.name LIKE %s"
+        params.append(search_provider_name)
+    if search_provider_phone:
+        query += " AND provider.phone LIKE %s"
+        params.append(search_provider_phone)
+    if search_provider_email:
+        query += " AND provider.email LIKE %s"
+        params.append(search_provider_email)
+    if search_provider_address:
+        query += " AND provider.address LIKE %s"
+        params.append(search_provider_address)
+    try:
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        providers = []
+        for row in results:
+            Provider = {"id":row[0], "name": row[1], "phone": row[2], "email": row[3], "address": row[4]}
+            providers.append(Provider)
+        return providers
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении поставщиков из базы данных'
+    finally:
+        cursor.close()
+
+# Функция поиска заказов из таблицы заказов
+def search_order_db(conn, search_order_id, search_order_customer, search_order_state, search_order_address, search_order_sum, search_order_date):
+    cursor = conn.cursor()
+    query = "SELECT orders.id, customer.name, order_states.name, delivery.address, orders.sum, orders.date FROM orders JOIN customer on customer.id=orders.customer JOIN order_states on order_states.id=orders.state JOIN delivery on delivery.id=orders.delivery WHERE TRUE"
+    params = []
+
+    if search_order_id:
+        query += " AND orders.id = %s"
+        params.append(search_order_id)
+    if search_order_customer:
+        query += " AND customer.name LIKE %s"
+        params.append(search_order_customer)
+    if search_order_state:
+        query += " AND orders.state = %s"
+        params.append(search_order_state)
+    if search_order_address:
+        query += " AND delivery.address LIKE %s"
+        params.append(search_order_address)
+    if search_order_sum:
+      query += " AND orders.sum BETWEEN %s - 100 AND %s + 100"
+      params.extend([search_order_sum, search_order_sum])
+    if search_order_date:
+      query += " AND orders.date BETWEEN %s::date - INTERVAL '30 days' AND %s::date + INTERVAL '30 days'"
+      params.extend([search_order_date, search_order_date])
+
+    try:
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        orders = []
+        for row in results:
+            Order = {"id":row[0], "customer": row[1], "state": row[2], "delivery": row[3], "sum": row[4], "date": row[5]}
+            orders.append(Order)
+        return orders
+    except:
+        traceback.print_exc()
+        return 'Ошибка при получении заказов из базы данных'
+    finally:
+        cursor.close()
+
 # Функция получения всех записей из таблицы товаров для отображения каталога
 def read_product_db(conn):
     conn = psycopg2.connect(connection_string)
@@ -23,7 +122,7 @@ def read_product_db(conn):
 
 # Функция получения всех записей из таблицы заказов для отображения списка
 def read_order_db(conn):
-    conn = psycopg2.connect(connection_string)  
+    conn = psycopg2.connect(connection_string)
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT orders.id, customer.name, order_states.name, delivery.address, orders.sum, orders.date FROM orders JOIN customer on customer.id=orders.customer JOIN order_states on order_states.id=orders.state JOIN delivery on delivery.id=orders.delivery ORDER BY orders.id DESC")
@@ -41,7 +140,7 @@ def read_order_db(conn):
 
 # Функция получения всех записей из таблицы поставщиков для отображения списка
 def read_provider_db(conn):
-    conn = psycopg2.connect(connection_string)  
+    conn = psycopg2.connect(connection_string)
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT provider.id, provider.name, provider.phone, provider.email, provider.address FROM provider ORDER BY provider.id DESC")
@@ -118,7 +217,6 @@ def find_token_in_db(conn, sysuser):
   try:
     cursor.execute("SELECT token FROM jwts WHERE sysuser = %s::integer", (sysuser,))
     token = cursor.fetchone()
-    print('find_token_in_db ', token)
     return token
   except:
         traceback.print_exc()
@@ -128,7 +226,7 @@ def find_token_in_db(conn, sysuser):
 
 # Функция извлечения данных пользователя из токена
 def extract_user_data_from_token(token):
-    conn = psycopg2.connect(connection_string)      
+    conn = psycopg2.connect(connection_string)
     try:
         # Декодируем токен для получения данных пользователя
         decoded_token = jwt.decode(token, secret_key, algorithms=["HS256"])
@@ -280,7 +378,6 @@ def get_product_from_db(conn, product_id):
                 "price": product_data[3],
                 "quantity": product_data[4]
             }
-            print('get_product_from_db', product)
             return product
         else:
             return None
@@ -305,7 +402,6 @@ def update_product_in_db(conn, id, name, provider, price, quantity):
                 "price": price,
                 "quantity": quantity
             }
-            print("update_product_in_db", product)
             return product
         else:
             return None
@@ -378,7 +474,6 @@ def update_order_in_db(conn, id, state):
                 "sum": order_data[4],
                 "date": order_data[5]
             }
-            print("update_order_in_db:", order)
             return order
         else:
             return None
@@ -388,3 +483,203 @@ def update_order_in_db(conn, id, state):
         return None
     finally:
         cursor.close()
+
+# Функция получения помесячной выручки из БД (сумма всех заказов, сгруппированных по месяцам)
+def db_read_monthly_income_count(start, finish):
+    conn = psycopg2.connect(connection_string)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT to_char(orders.date, 'Month') AS mes, SUM(orders.sum) AS income, COUNT(orders.sum) AS quantity
+            FROM orders
+            WHERE EXTRACT(MONTH FROM orders.date) BETWEEN %s::integer AND %s::integer
+            GROUP BY mes
+            ORDER BY (MIN(orders.date))
+        """, (start, finish))
+        results = cursor.fetchall()
+        return results
+    except Exception as e:  # ловить конкретные исключения и сохранять информацию об исключении в переменную 'e'
+        traceback.print_exc()
+        return 'Ошибка при получении данных из базы данных'
+    finally:
+        cursor.close() #закрыть курсор, который выполняет запросы
+        conn.close()  #закрыть соединение с базой данных
+
+# Функция получения больше всего востребованных товаров из БД (тех товаров во всех заказах, которых купили больше 500 единиц)
+def db_read_products_statiscics_count(start, finish):
+    conn = psycopg2.connect(connection_string)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT product.name AS tovar, SUM(order_product.quantity) AS kolichestvo
+            FROM order_product
+            JOIN product on product.id=order_product.product
+            JOIN orders on orders.id=order_product.order
+            WHERE (EXTRACT(MONTH FROM orders.date) BETWEEN %s::integer AND %s::integer)
+            GROUP BY tovar
+            HAVING SUM(order_product.quantity)>500
+            ORDER BY kolichestvo
+        """, (start, finish))
+        results = cursor.fetchall()
+        return results
+    except Exception as e:  # ловить конкретные исключения и сохранять информацию об исключении в переменную 'e'
+        traceback.print_exc()
+        return 'Ошибка при получении данных из базы данных'
+    finally:
+        cursor.close() #закрыть курсор, который выполняет запросы
+        conn.close()  #закрыть соединение с базой данных
+
+# Функция получения распределения данных по сумме заказа
+def db_read_orders_stat(start, finish):
+    conn = psycopg2.connect(connection_string)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT orders.sum AS summa
+            FROM orders
+            WHERE EXTRACT(MONTH FROM orders.date) BETWEEN %s::integer AND %s::integer
+        """, (start, finish))
+        results = cursor.fetchall()
+        return results
+    except Exception as e:  # ловить конкретные исключения и сохранять информацию об исключении в переменную 'e'
+        traceback.print_exc()
+        return 'Ошибка при получении данных из базы данных'
+    finally:
+        cursor.close() #закрыть курсор, который выполняет запросы
+        conn.close()  #закрыть соединение с базой данных
+
+def get_analytical_report(conn, start, finish):
+        # Создание DataFrame  помесячной выручки и вывод его на экран
+    df = pd.DataFrame(db_read_monthly_income_count(start, finish), columns=['МЕСЯЦ', 'ДОХОД', 'КОЛИЧЕСТВО ЗАКАЗОВ'])
+
+    # Создание DataFrame самых востребованных товаров из БД и вывод его на экран
+    df2 = pd.DataFrame(db_read_products_statiscics_count(start, finish), columns=['ТОВАР', 'КОЛИЧЕСТВО'])
+
+    # Создание DataFrame суммы заказа и вывод его на экран
+    df3 = pd.DataFrame(db_read_orders_stat(start, finish), columns=['summa'])
+
+    # Получаем текущую дату
+    current_date = datetime.now()
+
+    # Форматируем дату в строку (например, '2023-03-15')
+    date_str = current_date.strftime('%Y-%m-%d-%H-%M-%S')
+
+    # Создание PDF-файла для сохранения графиков и таблиц. В название файла включаем текущую дату
+    filename = '/content/static/report_' + date_str + '.pdf'
+
+    pdffile='report_' + date_str + '.pdf'
+
+    # Запись данных в PDF-файл
+    with PdfPages(filename) as pdf:
+        # Рассчитаем статистику по суммам заказа
+        kolvo=len(df3['summa']) #количество наблюдений
+        df_max = df3['summa'].max() #максимум
+        df_min=df3['summa'].min() #минимум
+        df_mean = df3['summa'].mean() #среднее значение
+        df_sum=df3['summa'].sum() #сумма
+
+        # упаковываем статистику в датафрейм для отображения в таблице
+        df_stats = pd.DataFrame({
+            'Показатель': ['ВСЕГО заказов', 'Максимальный чек', 'Минимальный чек', 'Среднее значение', 'ИТОГО общая сумма дохода'],
+            'Значение': [kolvo, df_max, df_min, df_mean, df_sum]
+        })
+
+        # Создание фигуры и осей для таблицы
+        fig_table, ax_table = plt.subplots(figsize=(8, 3))  # Выберите подходящий размер фигуры
+
+        # Задание заголовка
+        ax_table.set_title(f"Статистика по сумме заказов, с {start}-го месяца по {finish}-й месяц")
+
+        # Задание содержимого таблицы со статистикой
+        ax_table.axis('tight') #задаем границы области для таблицы так, чтобы они плотно обрамляли содержимое
+        ax_table.axis('off') #выключаем отображение осей для таблицы (нет границ и делений)
+        table = ax_table.table(cellText=df_stats.values, colLabels=df_stats.columns, loc='center') #задаем содержимое ячеек таблицы, заголовки столбцов и расположение таблицы
+        table.set_fontsize(10) #устанавливаем размер шрифта для текста в таблице вручную
+        table.scale(1.2, 1.2)  # Можно изменить масштаб таблицы для лучшего отображения
+
+        # Сохранение в pdf и закрытие страницы в файле, чтобы освободить память, связанную с этим объектом Figure в Matplotlib
+        pdf.savefig(fig_table)
+        plt.close(fig_table)
+
+    # подробности по месячной выручке
+        # Создание фигуры и осей для таблицы
+        fig_table, ax_table = plt.subplots(figsize=(8, 6))  # Выберите подходящий размер фигуры
+
+        # Задание заголовка
+        ax_table.set_title(f"Доходы по месяцам, с {start}-го месяца по {finish}-й месяц")
+
+        # Задание содержимого таблицы со статистикой
+        ax_table.axis('tight') # задаем границы области для таблицы так, чтобы они плотно обрамляли содержимое
+        ax_table.axis('off') # выключаем отображение осей для таблицы (нет границ и делений)
+        table = ax_table.table(cellText=df.values, colLabels=df.columns, loc='center') #задаем содержимое ячеек таблицы, заголовки столбцов и расположение таблицы
+        table.set_fontsize(10) # устанавливаем размер шрифта для текста в таблице вручную
+        table.scale(1.2, 1.2)  # Можно изменить масштаб таблицы для лучшего отображения
+
+        # Сохранение в pdf и закрытие страницы в файле, чтобы освободить память, связанную с этим объектом Figure в Matplotlib
+        pdf.savefig(fig_table)
+        plt.close(fig_table)
+
+        # Создание фигуры и осей для гистограммы
+        fig_hist, ax_hist = plt.subplots(figsize=(14, 6))  # Выберите подходящий размер фигуры
+
+        # Установим метки на оси X с названиями месяцев
+        ax_hist.set_xticks(range(1+len(df['МЕСЯЦ'])))
+
+        # Строим столбики гистограммы
+        ax_hist.bar(df['МЕСЯЦ'], df['ДОХОД'], width=0.4, edgecolor="white", label='доход за месяц', linewidth=0.7)
+
+        # Рисуем число заказов
+        ax_hist.plot(df['МЕСЯЦ'], 5000*df['КОЛИЧЕСТВО ЗАКАЗОВ'], 'r', label='количество заказов (в масштабе x5000)', linewidth=2.0)
+
+        # Задание содержимого таблицы со статистикой
+        ax_hist.set_title(f"Доход от заказов и их количество по месяцам, с {start}-го месяца по {finish}-й месяц")
+
+        #Задание осей гистограммы
+        ax_hist.set_xlabel('Месяц')
+        ax_hist.set_ylabel('Доход')
+
+        # Добавляем легенду на график
+        ax_hist.legend()
+
+        #Сохранение в pdf и закрытие страницы в файле, чтобы освободить память, связанную с этим объектом Figure в Matplotlib
+        pdf.savefig(fig_hist)
+        plt.close(fig_hist)
+
+        # Создание фигуры и осей для таблицы
+        fig_table, ax_table = plt.subplots(figsize=(8, 6))  # Выберите подходящий размер фигуры
+
+
+    # для самых часто покупаемых товаров
+
+        #Задание заголовка
+        ax_table.set_title(f"Самые часто покупаемые товары, с {start}-го месяца по {finish}-й месяц")
+
+        # Задание содержимого таблицы со статистикой
+        ax_table.axis('tight') #задаем границы области для таблицы так, чтобы они плотно обрамляли содержимое
+        ax_table.axis('off') #выключаем отображение осей для таблицы (нет границ и делений)
+        table = ax_table.table(cellText=df2.values, colLabels=df2.columns, loc='center') #задаем содержимое ячеек таблицы, заголовки столбцов и расположение таблицы
+        #table.auto_set_font_size(True)
+        table.set_fontsize(10) #устанавливаем размер шрифта для текста в таблице вручную
+        table.scale(1.2, 1.2)  # Можно изменить масштаб таблицы для лучшего отображения
+
+        #Сохранение в pdf и закрытие страницы в файле, чтобы освободить память, связанную с этим объектом Figure в Matplotlib
+        pdf.savefig(fig_table)
+        plt.close(fig_table)
+
+        # Создание фигуры и осей для круговой диаграммы
+        fig_circle, ax_circle = plt.subplots(figsize=(10, 8)) # 10 - ширина, 8 - высота фигуры в дюймах
+
+        #Задание заголовка
+        ax_circle.set_title(f"Самые часто покупаемые товары по месяцам, с {start}-го месяца по {finish}-й месяц")
+
+        # Строим круговую диаграмму с отображением данных
+        ax_circle.pie(df2['КОЛИЧЕСТВО'], labels=df2['ТОВАР'], autopct='%1.1f%%', startangle=90)
+
+        # Устанавливаем соотношение сторон диаграммы как 1, чтобы круг выглядел как круг, а не эллипс
+        plt.axis('equal')
+
+        #Сохранение в pdf и закрытие страницы в файле, чтобы освободить память, связанную с этим объектом Figure в Matplotlib
+        pdf.savefig(fig_circle)
+        plt.close(fig_circle)
+
+    return pdffile
