@@ -1,37 +1,70 @@
-#############################новая ячейка в Google Colab###########################################################
-# создаем html-страницу просмотра перечня поставщиков
-%%writefile templates/provider.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     <title>Поставщики товаров интернет-магазина</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
 <body>
     <h1>Поставщики товаров интернет-магазина</h1>
+    <table>
+        <tr>
+            <td>
+                 <a href='/index'>Главная</a></td>
+            </td>
+            <td>
+                 <a href='/login'>Войти в ЛК</a></td>
+            </td>
+            <td>
+                 <a href='/product'>Каталог товаров</a>
+            </td>
+            <td>
+                 <a href='/provider'>Список поставщиков</a>
+            </td>
+            <td>
+                 <a href='/order'>Заказы</a>
+            </td>
+            <td>
+                <a href='/analytics'>Отчет</a>
+            </td>
+        </tr>
+    </table>
+          <form method="GET" action="/provider">
           <table>
             <tr>
                 <td>
-                     <a href='/login'>Войти в ЛК</a></td>
+                  <div class="form-group">
+                    <label for="search_provider_name">Название поставщика</label>
+                    <input type="text" class="form-control" id="search_provider_name" placeholder="название поставщика для поиска" name="search_provider_name">
+                  </div>
                 </td>
                 <td>
-                     <a href='/product'>Каталог товаров</a>
+                  <div class="form-group">
+                    <label for="search_provider_phone">Телефон поставщика</label>
+                    <input type="text" class="form-control" id="search_provider_phone" placeholder="телефон поставщика для поиска" name="search_provider_phone">
+                  </div>
                 </td>
                 <td>
-                     <a href='/provider'>Список поставщиков</a>
+                  <div class="form-group">
+                    <label for="search_provider_email">Email поставщика</label>
+                    <input type="text" class="form-control" id="search_provider_email" placeholder="email поставщика для поиска" name="search_provider_email">
+                  </div>
                 </td>
                 <td>
-                  <a href='/new_provider'>Добавить поставщика</a>
+                  <div class="form-group">
+                    <label for="search_provider_address">Адрес поставщика</label>
+                    <input type="text" class="form-control" id="search_provider_address" placeholder="адрес поставщика для поиска" name="search_provider_address">
+                  </div>
                 </td>
                 <td>
-                     <a href='/order'>Заказы</a>
+                    <button type="submit" class="btn btn-primary">Найти поставщика</button>
                 </td>
             </tr>
           </table>
+          </form>
     <table>
         <thead>
             <tr>
