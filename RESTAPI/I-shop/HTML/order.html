@@ -1,6 +1,3 @@
-#############################новая ячейка в Google Colab###########################################################
-# создаем html-страницу просмотра перечня заказов
-%%writefile templates/order.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,23 +6,84 @@
       <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     <title>Заказы клиентов интернет-магазина</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
 <body>
     <h1>Заказы интернет-магазина</h1>
+    <table>
+        <tr>
+            <td>
+                 <a href='/index'>Главная</a></td>
+            </td>
+            <td>
+                 <a href='/login'>Войти в ЛК</a></td>
+            </td>
+            <td>
+                 <a href='/product'>Каталог товаров</a>
+            </td>
+            <td>
+                 <a href='/provider'>Список поставщиков</a>
+            </td>
+            <td>
+                 <a href='/order'>Заказы</a>
+            </td>
+            <td>
+                <a href='/analytics'>Отчет</a>
+            </td>
+        </tr>
+    </table>
+          <form method="POST" action="/order">
           <table>
             <tr>
                 <td>
-                     <a href='/login'>Войти в ЛК</a></td>
+                  <div class="form-group">
+                    <label for="search_order_id">Номер заказа</label>
+                    <input type="text" class="form-control" id="search_order_id" placeholder="номер заказ для поиска" name="search_order_id">
+                  </div>
                 </td>
                 <td>
-                     <a href='/product'>Каталог товаров</a>
+                  <div class="form-group">
+                    <label for="search_order_customer">Клиент</label>
+                    <input type="text" class="form-control" id="search_order_customer" placeholder="ФИО клиента" name="search_order_customer">
+                  </div>
                 </td>
                 <td>
-                     <a href='/provider'>Список поставщиков</a>
+                  <div class="form-group">
+                    <label for="search_order_state">Состояние заказа</label>
+                    <select id="search_order_state" name="search_order_state">
+                      <option value=''></option>
+                      <option value=1>новый</option>
+                      <option value=2>в обработке</option>
+                      <option value=3>собран</option>
+                      <option value=4>доставлен</option>
+                      <option value=5>отменен магазином</option>
+                    </select>
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_order_address">Адрес доставки</label>
+                    <input type="text" class="form-control" id="search_order_address" placeholder="адрес доставки" name="search_order_address">
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_order_sum">Примерная сумма (+100/-100 рублей)</label>
+                    <input type="text" class="form-control" id="search_order_sum" placeholder="примерная сумма (+100/-100 рублей)" name="search_order_sum">
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_order_date">Примерная дата создания заказа (+30/-30 дней)</label>
+                    <input type="text" class="form-control" id="search_order_date" placeholder="примерная дата (+30/-30 дней)" name="search_order_date">
+                  </div>
+                </td>
+                <td>
+                    <button type="submit" class="btn btn-primary">Найти заказ</button>
                 </td>
             </tr>
           </table>
+          </form>
     <table>
         <thead>
             <tr>
