@@ -1,22 +1,17 @@
 #############################новая ячейка в Google Colab###########################################################
-os.environ["FLASK_DEBUG"] = "development"
+
+# Создание экземпляра Flask-приложения
 app = Flask(__name__)
-port = 5000
-#Setting an auth token allows us to open multiple tunnels at the same time
-ngrok.set_auth_token("your_auth_token") #ваш аутентификационный токен ngrok взять здесь: https://dashboard.ngrok.com/login 
-# Open a ngrok tunnel to the HTTP server
-public_url = ngrok.connect(port)
-print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:{}\"".format(public_url, port))
-# Update any base URLs to use the public ngrok URL
-app.config["BASE_URL"] = public_url
+run_with_ngrok(app)
 
 ########################################################################################
 # Задаем секретный ключ для подписи JWT
-secret_key = "SecretKey4JWT" #можно задать другой ключ, какой нравится
+secret_key = "SecretKey4JWT" #это мой пример секретного ключа, можно подставить свой какой нравится
+
 # Задаем время жизни JWT-токена в минутах
 exp_time=45
 
-# установка secret key для клиентской сессии (JWT):
+# set the secret key для кодирования сессии:
 app.secret_key = secret_key
 
 # Обработчик запросов по корневому адресу
@@ -24,38 +19,9 @@ app.secret_key = secret_key
 def hello():
     return render_template('index.html')
 
-# Обработчик запросов на получение списка товаров:
-@app.route('/product', methods=['GET', 'POST'])
-def get_product():
-    # Подключение к PostgreSQL
-    conn = psycopg2.connect(connection_string)
-    try:
-        if request.method == 'GET':
-            products = read_product_db(conn)
-            return render_template('product.html', products=products)
-        else:
-            if request.content_type == 'application/json':
-               new_product = request.json
-            elif request.form:
-              new_product = request.form
-
-            name = new_product.get('name')
-            provider = new_product.get('provider')
-            price = new_product.get('price')
-            quantity = new_product.get('quantity')
-
-            # Добавление нового товара в базу данных
-            product = add_product_to_db(conn, name, provider, price, quantity)
-            return redirect('/product')
-    except Exception as e:
-        traceback.print_exc()
-        return f'Ошибка при получении товаров из базы данных: {e}'
-    finally:
-        conn.close()
-
-# Обработчик запросов на добавление нового товара:
-@app.route('/new_product', methods=['POST', 'GET'])
-def add_product():
+# Обработчик запросов на формирование аналитического отчета:
+@app.route('/analytics', methods=['POST', 'GET'])
+def get_analytics():
     # Получаем токен из заголовка HTTP-запроса
     token = request.cookies.get('token')
 
@@ -69,10 +35,92 @@ def add_product():
                 # Проверяем, что пользователь имеет роль "manager"
                 if user_data['role'] == 'manager':
                     if request.method == 'POST':
+                      if request.content_type == 'application/json':
+                        analytics_data = request.json
+                      elif request.form:
+                        analytics_data = request.form
+
+                      start = analytics_data.get('start')
+                      finish = analytics_data.get('finish')
+
+                      # Поиск пользователя в базе данных
+                      report = get_analytical_report(conn, start, finish)
+                      return render_template('analytics.html', report = report)
+                    else:
+                      return render_template('analytics.html')
+                else:
+                  print("Неверный токен")
+                  response = make_response(render_template('login.html'), 403)
+                  return response
+            else:
+              print("Требуется авторизация")
+              response = make_response(render_template('login.html'), 401)
+              return response
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при обработке запроса: {e}'
+    finally:
+       conn.close()
+
+
+# Обработчик запросов на получение списка товаров и добавление нового товара:
+@app.route('/product', methods=['GET', 'POST'])
+def get_product():
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string) #устанавливаем соединение с БД
+    try: #чтобы ошибка не вызвала сбой
+        if request.method == 'GET':
+          #if request.args:
+            search_product_name = '%' + request.args.get('search_product_name', '') + '%'
+            search_product_min_price = request.args.get('search_product_min_price', '')
+            search_product_max_price = request.args.get('search_product_max_price', '')
+            products = search_product_db(conn, search_product_name, search_product_min_price, search_product_max_price)
+          #else:
+            #products = read_product_db(conn)
+            return render_template('product.html', products=products)
+        else:
+          #если POST-запрос, то взять данные полезной нагрузки из JSON в теле запроса, например, при отправке через Postman
+            if request.content_type == 'application/json':
+               new_product = request.json
+            elif request.form: #или берем данные из полей формы HTML-страницы
+              new_product = request.form
+
+            #парсим данные запроса для создания нового объекта
+            name = new_product.get('name')
+            provider = new_product.get('provider')
+            price = new_product.get('price')
+            quantity = new_product.get('quantity')
+
+            # Добавление нового товара в базу данных
+            product = add_product_to_db(conn, name, provider, price, quantity)
+            return redirect('/product') #перенаправляем на маршрут
+    except Exception as e: #если ошибка, не получилось
+        traceback.print_exc() #вывод ошибки в консоль
+        return f'Ошибка при получении товаров из базы данных: {e}' #уведомление об ошибке
+    finally:
+        conn.close()  #закрываем соединение с БД
+
+# Обработчик запросов на добавление нового товара:
+@app.route('/new_product', methods=['POST', 'GET'])
+def add_product():
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+
+    # Подключение к PostgreSQL
+    conn = psycopg2.connect(connection_string)
+    try:
+        providers = read_provider_db(conn)
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                # Проверяем, что пользователь имеет роль "manager"
+                if user_data['role'] == 'manager':
+                    if request.method == 'POST':
                       response = make_response(render_template('product.html'), 200)
                       return response
                     else:
-                      return render_template('new_product.html')
+                      return render_template('new_product.html', providers=providers)
                 else:
                     print("У вас нет доступа к этой странице")
                     response = make_response(render_template('login.html'), 403)
@@ -85,21 +133,24 @@ def add_product():
             print("Требуется авторизация")
             response = make_response(render_template('login.html'), 401)
             return response
-            #return redirect(url_for('login'))
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при обработке запроса: {e}'
     finally:
        conn.close()
 
-# Обработчик запросов на получение списка поставщиков:
+# Обработчик запросов на получение списка поставщиков и добавление нового поставщика:
 @app.route('/provider', methods=['GET', 'POST'])
 def get_provider():
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
         if request.method == 'GET':
-            providers = read_provider_db(conn)
+            search_provider_name = '%' + request.args.get('search_provider_name', '') + '%'
+            search_provider_phone = '%' + request.args.get('search_provider_phone', '') + '%'
+            search_provider_email = '%' + request.args.get('search_provider_email', '') + '%'
+            search_provider_address = '%' + request.args.get('search_provider_address', '') + '%'
+            providers = search_provider_db(conn, search_provider_name, search_provider_phone, search_provider_email, search_provider_address)
             return render_template('provider.html', providers=providers)
         else:
             if request.content_type == 'application/json':
@@ -127,7 +178,6 @@ def get_provider():
 def add_provider():
     # Получаем токен из заголовка HTTP-запроса
     token = request.cookies.get('token')
-    print('token ', token)
 
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
@@ -195,12 +245,9 @@ def login():
             else:
                 response = make_response(render_template('registration.html'), 401)
                 return response
- #               return redirect(url_for('registration'))
-  #              return redirect('/registration')
         else:
            response = make_response(render_template('login.html'), 200)
            return response
-           #return redirect('/login')
     except Exception as e:
         traceback.print_exc()
         if request.method == 'POST':
@@ -250,7 +297,6 @@ def registration():
 def provider_ops(id):
     # Получаем токен из заголовка HTTP-запроса
     token = request.cookies.get('token')
-    print('token ', token)
 
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
@@ -337,6 +383,7 @@ def product_ops(id):
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+      providers = read_provider_db(conn)
       if token:
         # Проверяем валидность токена и получаем данные пользователя
         user_data = extract_user_data_from_token(token)
@@ -344,7 +391,6 @@ def product_ops(id):
           # Проверяем, что пользователь имеет роль "manager"
           if user_data['role'] == 'manager':
             product = get_product_from_db(conn, id)
-            print(product)
             if not product:
               return f'Товар с ID {id} не найден'
             else:
@@ -389,7 +435,7 @@ def product_ops(id):
               else:
                 product = get_product_from_db(conn, id)
                 if product:
-                    return render_template('update_product.html', product=product)
+                    return render_template('update_product.html', product=product, providers=providers)
                 else:
                     return f'Товар с ID {id} не найден'
           else:
@@ -412,7 +458,7 @@ def product_ops(id):
 
 
 # Обработчик запросов на получение списка заказов:
-@app.route('/order', methods=['GET'])
+@app.route('/order', methods=['GET', 'POST'])
 def get_order():
 
     # Получаем токен из заголовка HTTP-запроса
@@ -428,8 +474,18 @@ def get_order():
             if user_data:
                 # Проверяем, что пользователь имеет роль "manager"
                 if user_data['role'] == 'manager':
+                  if request.method == 'POST':
+                    search_order = request.form
+                    search_order_id = search_order.get('search_order_id', '')
+                    search_order_customer = '%' + search_order.get('search_order_customer', '') + '%'
+                    search_order_state = search_order.get('search_order_state', '')
+                    search_order_address = '%' + search_order.get('search_order_address', '') + '%'
+                    search_order_sum = search_order.get('search_order_sum', '')
+                    search_order_date = search_order.get('search_order_date', '')
+                    orders = search_order_db(conn, search_order_id, search_order_customer, search_order_state, search_order_address, search_order_sum, search_order_date)
+                  else:
                     orders = read_order_db(conn)
-                    return render_template('order.html', orders=orders)
+                  return render_template('order.html', orders=orders)
                 else:
                     print("Вы не менеджер, просмотр запрещен")
                     response = make_response(render_template('login.html'), 401)
@@ -510,6 +566,5 @@ def order_ops(id):
     finally:
        conn.close()
 
-
 # Запуск приложения
-threading.Thread(target=app.run, kwargs={"use_reloader": False}).start()
+app.run()
