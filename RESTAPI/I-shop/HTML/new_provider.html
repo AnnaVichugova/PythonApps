@@ -1,37 +1,40 @@
-#############################новая ячейка в Google Colab###########################################################
-# создаем html-страницу добавления нового поставщика
-%%writefile templates/new_provider.html
 <!DOCTYPE html>
 <html>
    <head>
       <title>Добавление поставщика</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
-      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
       <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
    </head>
    <body>
       <div class="container mt-3">
         <h2>Добавление поставщика</h2>
-          <table>
-            <tr>
-                <td>
-                     <a href='/login'>Войти в ЛК</a></td>
-                </td>
-                <td>
-                     <a href='/product'>Каталог товаров</a>
-                </td>
-                <td>
-                     <a href='/provider'>Список поставщиков</a>
-                </td>
-                <td>
-                     <a href='/order'>Заказы</a>
-                </td>
-            </tr>
-          </table>
+    <table>
+        <tr>
+            <td>
+                 <a href='/index'>Главная</a></td>
+            </td>
+            <td>
+                 <a href='/login'>Войти в ЛК</a></td>
+            </td>
+            <td>
+                 <a href='/product'>Каталог товаров</a>
+            </td>
+            <td>
+                 <a href='/provider'>Список поставщиков</a>
+            </td>
+            <td>
+                 <a href='/order'>Заказы</a>
+            </td>
+            <td>
+                <a href='/analytics'>Отчет</a>
+            </td>
+        </tr>
+    </table>
          <form method="POST" action="/provider">
             <div class="form-group">
                <label for="name">Название:</label>
