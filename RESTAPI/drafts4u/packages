@@ -1,0 +1,38 @@
+#############################новая ячейка в Google Colab###########################################################
+# Установка необходимых библиотек
+!pip install flask==2.2.5 #сам фреймворк Flask
+!pip install flask-ngrok #библиотека для тунелирования, чтобы достучаться к веб-серверу извне
+!pip install pyngrok
+!pip install flask_httpauth
+# Импорт модулей и библиотек
+import traceback #для вывода информации об исключениях и записей трассировки стека
+import threading
+
+from google.colab import files #для работы с файловым пространством Colab
+
+from flask import Flask, session, jsonify, request, render_template, Response, make_response, redirect #для веб-приложения
+from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import generate_password_hash, check_password_hash
+from pydantic import BaseModel, EmailStr, ValidationError #для создания классов
+from enum import Enum #для перечислений
+from typing import Union, Optional, List #для создания классов
+import os #для работы с операционной системой, файловым пространством ВМ Google Colab
+import psycopg2 #для работы с PostgreSQL
+
+from datetime import date, datetime, timedelta #для работы с датой и временем
+
+#устанавливаем свой токен ngrok для тунелирования, взять личный токен здесь https://dashboard.ngrok.com/
+!ngrok authtoken 'ваш личный токен ngrok'
+
+# создаем директорию с шаблонами HTML-страниц сайта
+!mkdir templates
+
+# создаем директорию со статичными файлами (картинки, pdf, CSS-таблица и пр.)
+!mkdir static
+
+from pyngrok import ngrok
+
+public_url = ngrok.connect(addr="5000", proto="http")
+
+#Вывод публичного URL для доступа к веб-интерфейсу
+print("Адрес:", public_url)
