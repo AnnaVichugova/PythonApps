@@ -1,13 +1,13 @@
 #############################новая ячейка в Google Colab###########################################################
 # Установка необходимых библиотек
-!pip install flask #сам фреймворк Flask
+!pip install flask==2.2.5 #сам фреймворк Flask
 !pip install flask-ngrok #библиотека для тунелирования, чтобы достучаться к веб-серверу извне
-!pip install pyngrok==4.1.1 #утилита тунелирования, чтобы достучаться к веб-серверу извне
-from flask_ngrok import run_with_ngrok #делает веб-приложение доступным извне во время выполнения
+!pip install pyngrok
 !pip install pydantic[email] #для автопроверки полей ввода email
 
 # Импорт модулей и библиотек
 import traceback #для вывода информации об исключениях и записей трассировки стека
+import threading
 
 import matplotlib.pyplot as plt #для рисования графиков
 from matplotlib.backends.backend_pdf import PdfPages #для формирования pdf-отчета
