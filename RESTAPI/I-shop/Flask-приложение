@@ -1,10 +1,16 @@
 #############################новая ячейка в Google Colab###########################################################
+from pyngrok import ngrok
+
+public_url = ngrok.connect(addr="5000", proto="http")
+
+#Вывод публичного URL для доступа к веб-интерфейсу
+print("Адрес:", public_url)
+
+#############################новая ячейка в Google Colab###########################################################
 
 # Создание экземпляра Flask-приложения
 app = Flask(__name__)
-run_with_ngrok(app)
 
-########################################################################################
 # Задаем секретный ключ для подписи JWT
 secret_key = "SecretKey4JWT" #это мой пример секретного ключа, можно подставить свой какой нравится
 
@@ -374,7 +380,7 @@ def provider_ops(id):
         conn.close()
 
 # Обработчик изменения товара по id:
-@app.route('/product/<int:id>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+@app.route('/product/<int:id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def product_ops(id):
     # Получаем токен из заголовка HTTP-запроса
     token = request.cookies.get('token')
@@ -394,7 +400,7 @@ def product_ops(id):
             if not product:
               return f'Товар с ID {id} не найден'
             else:
-              if request.method == 'PUT' or request.method == 'PATCH':
+              if request.method == 'PUT':
                 if request.content_type == 'application/json':
                     updated_product = request.json
                 elif request.form:
