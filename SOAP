@@ -1,0 +1,182 @@
+#############Python-приложение для запуска в Google Colab#######################################
+
+#################################ячейка 1############################################################################
+#############установка библиотек##############
+!pip install lxml
+!pip install spyne flask
+!pip install flask-ngrok #библиотека для тунелирования, чтобы достучаться к веб-серверу извне
+!pip install pyngrok
+
+#############импорт модулей####################
+import os
+
+from flask import Flask, request, Response
+from spyne import Application, rpc, ServiceBase, Unicode, Integer
+from spyne.protocol.soap import Soap11
+from spyne.server.wsgi import WsgiApplication
+from lxml import etree
+
+
+#устанавливаем свой токен ngrok для тунелирования, взять личный токен здесь https://dashboard.ngrok.com/
+!ngrok authtoken 'your ngrok token'
+
+#################################ячейка 2############################################################################
+public_url = ngrok.connect(addr="5000", proto="http")
+
+#Вывод публичного URL для доступа к веб-интерфейсу
+print("Адрес:", public_url)
+###################################################
+
+class SupplierService(ServiceBase):
+    @rpc(Unicode, _returns=Integer)
+    def assess_reliability(ctx, supplier_data):
+      try:
+        # Разбор SOAP-сообщения
+        data = etree.fromstring(supplier_data)
+        
+        # Инициализация рейтинга
+        rating = 0
+        
+        # Проверка формы бизнеса
+        business_form = data.find('business_form').text
+        if business_form == 'ЗАО' or business_form == 'ОАО':
+            rating += 3
+        elif business_form == 'ИП':
+            rating += 1
+        elif business_form == 'ООО':
+            rating += 2
+        
+        # Проверка длительности существования
+        age = int(data.find('age').text)
+        if age > 3:
+            rating += 3
+        elif age > 2:
+            rating += 2
+        elif age > 1:
+            rating += 1
+        
+        # Проверка количества сотрудников
+        employees = int(data.find('employees').text)
+        if employees > 5:
+            rating += 1
+        
+        # Проверка наличия офиса
+        office = data.find('office').text.lower() == 'true'
+        if office:
+            rating += 1
+        
+        # Проверка наличия склада
+        warehouse = data.find('warehouse').text.lower() == 'true'
+        if warehouse:
+            rating += 2
+        
+        # Оценка благонадежности
+        if rating > 7:
+            return 1  # Надежный
+        else:
+            return 0  # Ненадежный
+        
+      except etree.XMLSyntaxError as e:
+        print(f"Ошибка парсинга XML: {e}")
+        return -1  # Ошибка в XML
+      except Exception as e:
+        print(f"Общая ошибка: {e}")
+        return -1  # Общая ошибка
+
+
+    @rpc(Unicode, _returns=Unicode)
+    def assign_delivery_zone(ctx, supplier_data):
+        try:
+            xml_data = etree.fromstring(supplier_data)
+            address = xml_data.find('address').text
+            # Пример простой логики назначения зоны доставки
+            if 'ЦАО' in address:
+                return 'Зона 1'
+            elif 'САО' or 'ВАО' or 'ЗАО' or 'ЮАО' in address:
+                return 'Зона 2'
+            elif 'СВАО' or 'ЮВАО' or 'ЮЗАО' or 'СЗАО' in address:
+                return 'Зона 3'
+            elif 'ЗелАО' or 'НАО' or 'ТАО' in address:
+                return 'Зона 4'
+            else:
+                return 'Неизвестно'
+        except etree.XMLSyntaxError as e:
+            print(f"Ошибка парсинга XML: {e}")
+            return 'Ошибка парсинга XML'
+
+app = Flask(__name__)
+
+application = Application(
+    [SupplierService],
+    tns='spyne.examples.supplier',
+    in_protocol=Soap11(validator='lxml'),
+    out_protocol=Soap11()
+)
+
+wsgi_app = WsgiApplication(application)
+
+def start_response(status, response_headers, exc_info=None):
+    response = Response(status=status, headers=dict(response_headers))
+    return response
+
+@app.route('/', methods=['POST', 'GET'])
+def combined_service():
+    if request.method == 'POST':
+        return Response(wsgi_app(request.environ, start_response), content_type='text/xml')
+    elif request.method == 'GET':
+                return """
+        <b>Это веб-сервис проверки поставщиков</b><br>
+        UI очень не красивый, зато работает! :) <br>
+        Отправьте через Postman сюда SOAP-сообщение POST-запросом с данными поставщика <br>
+        и получите рейтинг его благонадежности или зону доставки <br>
+        <br>
+        <br>
+        <b>Пример SOAP-сообщения проверки благонадежности поставщика:</b><br>
+        <pre>
+        &lt;?xml version="1.0" encoding="utf-8"?&gt;
+        &lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:spy="spyne.examples.supplier"&gt;
+            &lt;soapenv:Header/&gt;
+            &lt;soapenv:Body&gt;
+                &lt;spy:assess_reliability&gt;
+                    &lt;spy:supplier_data&gt;&lt;![CDATA[
+                        &lt;data&gt;
+                            &lt;business_form&gt;ООО&lt;/business_form&gt;
+                            &lt;age&gt;10&lt;/age&gt;
+                            &lt;employees&gt;50&lt;/employees&gt;
+                            &lt;office&gt;true&lt;/office&gt;
+                            &lt;warehouse&gt;false&lt;/warehouse&gt;
+                        &lt;/data&gt;
+                    ]]&gt;&lt;/spy:supplier_data&gt;
+                &lt;/spy:assess_reliability&gt;
+            &lt;/soapenv:Body&gt;
+        &lt;/soapenv:Envelope&gt;
+        </pre>
+        <br>
+        <b>Пример SOAP-сообщения вычисления зоны доставки поставщика:</b><br>
+        <pre>
+        &lt;?xml version="1.0" encoding="utf-8"?&gt;
+        &lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:spy="spyne.examples.supplier"&gt;
+            &lt;soapenv:Header/&gt;
+            &lt;soapenv:Body&gt;
+                &lt;spy:assign_delivery_zone&gt;
+                    &lt;spy:supplier_data&gt;&lt;![CDATA[
+                        &lt;data&gt;
+                            &lt;address&gt;ЦАО, ул. Ленинский проспект, д.17&lt;/address&gt;
+                        &lt;/data&gt;
+                    ]]&gt;&lt;/spy:supplier_data&gt;
+                &lt;/spy:assign_delivery_zone&gt;
+            &lt;/soapenv:Body&gt;
+        &lt;/soapenv:Envelope&gt;
+        </pre>
+        """
+        
+@app.route('/wsdl', methods=['GET'])
+def wsdl():
+    wsdl_environ = request.environ.copy()
+    wsdl_environ['PATH_INFO'] = '/soap?wsdl'
+    wsdl_environ['QUERY_STRING'] = 'wsdl'
+    response = wsgi_app(wsdl_environ, start_response)
+    return Response(response, content_type='text/xml')
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000)
