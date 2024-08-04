@@ -1,7 +1,7 @@
 class Product(BaseModel):
     id: int
     name: str
-    provider:  Optional[Provider] = None
+    provider:  int
     price: Optional[float] = None
     quantity: Optional[int] = None
 
