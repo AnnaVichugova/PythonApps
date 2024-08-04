@@ -1,4 +1,5 @@
-%%writefile stattic/styles.css
+# создаем таблицу стилей для HTML-страниц
+%%writefile static/styles.css
 /* styles.css */
 
 table {
