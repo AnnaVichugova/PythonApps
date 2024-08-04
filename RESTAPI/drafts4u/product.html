@@ -1,0 +1,94 @@
+#############################новая ячейка в Google Colab###########################################################
+# создаем html-страницу просмотра каталога товаров
+%%writefile templates/product.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Каталог товаров интернет-магазина</title>
+</head>
+<body>
+    <h1>Каталог товаров интернет-магазина</h1>
+    <table>
+        <tr>
+            <td>
+                 <a href='/'>Главная</a></td>
+            </td>
+            <td>
+                 <a href='/login'>Войти в ЛК</a></td>
+            </td>
+            <td>
+                 <a href='/product'>Каталог товаров</a>
+            </td>
+            <td>
+                 <a href='/new_product'>Добавить товар</a>
+            </td>
+            <td>
+                 <a href='/provider'>Список поставщиков</a>
+            </td>
+            <td>
+                 <a href='/order'>Заказы</a>
+            </td>
+            <td>
+                <a href='/analytics'>Отчет</a>
+            </td>
+        </tr>
+    </table>
+          <form method="GET" action="/product">
+          <table>
+            <tr>
+                <td>
+                  <div class="form-group">
+                    <label for="search_product_name">Название товара</label>
+                    <input type="text" class="form-control" id="search_product_name" placeholder="название товара для поиска" name="search_product_name">
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_product_min_price">Минимальная цена</label>
+                    <input type="text" class="form-control" id="search_product_min_price" placeholder="минимальная цена товара" name="search_product_min_price">
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_product_max_price">Максимальная цена</label>
+                    <input type="text" class="form-control" id="search_product_max_price" placeholder="максимальная цена товара" name="search_product_max_price">
+                  </div>
+                </td>
+                <td>
+                    <button type="submit" class="btn btn-primary">Найти товар</button>
+                </td>
+            </tr>
+          </table>
+          </form>
+        <table>
+        <thead>
+            <tr>
+                <th>Товар </th>
+                <th>Поставщик</th>
+                <th>Цена</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>{{ product.name }}</td>
+                <td>{{ product.provider }}</td>
+                <td>{{ product.price }}</td>
+                <td>{{ product.quantity }}</td>
+                <td>
+                <form method="POST" action="/product/{{ product.id }}">
+                <button value="{{ product.id }}" type="submit">Изменить</button>
+                </form>
+                </td>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
