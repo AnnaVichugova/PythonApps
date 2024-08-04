@@ -1,0 +1,11 @@
+%%writefile stattic/styles.css
+/* styles.css */
+
+table {
+  border-collapse: collapse;
+}
+
+td {
+  padding: 10px;
+  border: 1px solid blue;
+}
