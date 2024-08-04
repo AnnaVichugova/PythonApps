@@ -179,11 +179,18 @@ def add_user_to_db(conn, user_data):
     conn = psycopg2.connect(connection_string)
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT MAX(id) FROM users")
-        id = cursor.fetchone()[0] + 1
+        cursor.execute("SELECT MAX(id) FROM users") #нужно, если генерация id идет на стороне бэка-серверного приложения. Если id в БД определен как serial, это НЕ НУЖНО
+        id = cursor.fetchone()[0] + 1 #Если id в БД определен как serial, это НЕ НУЖНО
+
+        #Если генерация id идет на стороне бэка-серверного приложения
         cursor.execute("INSERT INTO users (id, login, password, role) VALUES (%s, %s, %s, %s)", (id, user_data['login'], user_data['password'], user_data['role']))
+        
+        #Если генерация id идет на стороне БД, т.е.  id в БД определен как serial, вставку делаем БЕЗ поля id      
+        #типа так: cursor.execute("INSERT INTO users (login, password, role) VALUES (%s, %s, %s)", (user_data['login'], user_data['password'], user_data['role']))
+
         conn.commit()
-        user = {"id": id, "login": user_data['login'], "password": user_data['password'], "role": user_data['role']}
+        user = {"id": id, "login": user_data['login'], "password": user_data['password'], "role": user_data['role']} #если с id
+        #если без id: user = {"login": user_data['login'], "password": user_data['password'], "role": user_data['role']}
         return user
     except Exception as e:
         traceback.print_exc()
