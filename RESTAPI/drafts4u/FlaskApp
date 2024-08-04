@@ -1,0 +1,34 @@
+# Создание экземпляра Flask-приложения
+app = Flask(__name__)  # здесь должно быть __name__ вместо name
+
+# Если вы используете ngrok и хотите запустить Flask-приложение локально на определенном порту
+# run_with_ngrok(app)  # эту строку можно закомментировать или удалить
+
+#определение путей
+@app.route("/")
+def home():
+  return "<h1>Привет!!!</h1>"
+
+# Обработчик запросов на получение списка товаров:
+@app.route('/product', methods=['GET'])
+def get_product():
+  # Подключение к PostgreSQL
+  conn = psycopg2.connect(connection_string)  # устанавливаем соединение с БД
+  try:
+    products = read_product_db(conn)
+    return render_template('product.html', products=products)
+  except Exception as e:
+    traceback.print_exc()  # вывод ошибки в консоль
+    return f'Ошибка при получении товаров из базы данных: {e}'  # уведомление об ошибке
+  finally:
+    conn.close()  # закрываем соединение с БД
+
+
+port=8081
+
+public_url = ngrok.connect(port)
+print(f'Public URL: {public_url}')
+
+
+# Запуск приложения на порту 5001
+app.run(port=port)
