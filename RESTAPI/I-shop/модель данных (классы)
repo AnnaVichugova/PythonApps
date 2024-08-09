@@ -11,12 +11,6 @@ class OrderState(str, Enum):
     collected = 'собран'
     canceled = 'отменен'
 
-class User(BaseModel):
-    id: int
-    login: EmailStr
-    password: str
-    role: Role
-
 class Provider(BaseModel):
     id: int
     name: Optional[str] = None
