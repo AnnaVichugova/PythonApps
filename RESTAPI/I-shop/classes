@@ -1,0 +1,71 @@
+#############################новая ячейка в Google Colab###########################################################
+class Customer_Status(BaseModel):
+    id: int
+    name: Optional[str] = None
+
+class Customer(BaseModel):
+    id: int
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    status:  Optional[Customer_Status] = None
+    email: EmailStr
+
+
+class Provider(BaseModel):
+    id: int
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    address: Optional[str] = None
+
+
+class Product(BaseModel):
+    id: int
+    name: Optional[str] = None
+    provider:  Optional[Provider] = None
+    price: Optional[float] = None
+    quantity: Optional[int] = None
+
+class Role(BaseModel):
+    id: int
+    name: Optional[str] = None
+
+class Order_Status(BaseModel):
+    id: int
+    name: Optional[str] = None
+
+class Order(BaseModel):
+    id: int
+    customer:  Optional[Customer] = None
+    status:  Optional[Order_Status] = None
+    ammount: Optional[float] = None
+    date: Optional[date] = None
+
+class Welcome:
+    products: List[Product]
+    def init(self, apps: List[Product]) -> None:
+        self.products = products
+
+    providers: List[Provider]
+    def init(self, apps: List[Provider]) -> None:
+        self.providers = providers
+
+    orders: List[Order]
+    def init(self, apps: List[Order]) -> None:
+        self.orders = orders
+
+    customers: List[Customer]
+    def init(self, apps: List[Customer]) -> None:
+        self.customers = customers
+
+    customers_status: List[Customer_Status]
+    def init(self, apps: List[Customer_Status]) -> None:
+        self.customers_status = customers_status
+
+    roles: List[Role]
+    def init(self, apps: List[Customer_Status]) -> None:
+        self.roles = roles
+
+    orders_status: List[Order_Status]
+    def init(self, apps: List[Customer_Status]) -> None:
+        self.orders_status = orders_status
