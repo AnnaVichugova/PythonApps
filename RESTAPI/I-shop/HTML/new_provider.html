@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html>
    <head>
       <title>Добавление поставщика</title>
@@ -15,24 +15,11 @@
         <h2>Добавление поставщика</h2>
     <table>
         <tr>
+            {% for word, link in zip(menu_word, menu_link) %}
             <td>
-                 <a href='/index'>Главная</a></td>
+                <a href="{{ link }}">{{ word }}</a>
             </td>
-            <td>
-                 <a href='/login'>Войти в ЛК</a></td>
-            </td>
-            <td>
-                 <a href='/product'>Каталог товаров</a>
-            </td>
-            <td>
-                 <a href='/provider'>Список поставщиков</a>
-            </td>
-            <td>
-                 <a href='/order'>Заказы</a>
-            </td>
-            <td>
-                <a href='/analytics'>Отчет</a>
-            </td>
+            {% endfor %}
         </tr>
     </table>
          <form method="POST" action="/provider">
