@@ -1,16 +1,27 @@
 #############################новая ячейка в Google Colab###########################################################
-from pyngrok import ngrok
-
 public_url = ngrok.connect(addr="5000", proto="http")
 
 #Вывод публичного URL для доступа к веб-интерфейсу
 print("Адрес:", public_url)
 
-#############################новая ячейка в Google Colab###########################################################
 
 # Создание экземпляра Flask-приложения
 app = Flask(__name__)
 
+#базовая аутентификация
+auth = HTTPBasicAuth()
+users = {
+    #"sotrudnik": generate_password_hash("trud-pass")
+    "1": generate_password_hash("1")
+}
+
+@auth.verify_password
+def verify_password(username, password):
+    if username in users and \
+            check_password_hash(users.get(username), password):
+        return username
+
+########################################################################################
 # Задаем секретный ключ для подписи JWT
 secret_key = "SecretKey4JWT" #это мой пример секретного ключа, можно подставить свой какой нравится
 
@@ -20,12 +31,68 @@ exp_time=45
 # set the secret key для кодирования сессии:
 app.secret_key = secret_key
 
+#функция для вывода меню согласно роли
+def menu(role):
+    menu_word = ['Главная', 'Товары', 'Поставщики']
+    menu_link = ['/', '/product', '/provider']
+
+    if role == 1:
+        menu_word += ['ВХОД']
+        menu_link += ['/login']
+
+    if role == 2:
+        menu_word += ['Заказы', 'Клиенты', 'Аналитика', 'ВЫХОД']
+        menu_link += ['/order', '/customer', '/analytics', 'logout']
+    elif role == 3:
+        menu_word += ['Заказы', 'Добавить товар', 'Добавить поставщика', 'ВЫХОД']
+        menu_link += ['/order', '/new_product', '/new_provider', 'logout']
+
+    return menu_word, menu_link
+
+#Обработчик выхода из логина
+@app.route('/logout')
+def logout():
+    response = redirect(url_for('index'))  # Перенаправление на главную страницу
+    response.headers['WWW-Authenticate'] = 'Basic realm="Login required"'
+
+    # Сброс куки-файлов
+    cookies_to_clear = ['token']  # Список имен куки, которые нужно сбросить
+    for cookie in cookies_to_clear:
+        response.delete_cookie(cookie)
+
+    return response
+
+#если нужно войти в систему
+@auth.login_required
+def needlogin(current_role):
+    conn = psycopg2.connect(connection_string)
+    roles=read_role_db(conn)
+    print("Надо войти в систему")
+    menu_word, menu_link = menu(current_role)
+    response = make_response(render_template('login.html', roles=roles, menu_word=menu_word, menu_link=menu_link, zip=zip), 403)
+    return response
+
 # Обработчик запросов по корневому адресу
 @app.route('/')
 def hello():
-    return render_template('index.html')
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
+    conn = psycopg2.connect(connection_string)
+    if token:
+        #Проверяем валидность токена и получаем данные пользователя
+          user_data = extract_user_data_from_token(token)
+          if user_data:
+            current_role = int(user_data['role'])
+    else:
+        current_role = 1
+    menu_word, menu_link = menu(current_role)
+    return render_template('index.html', menu_word=menu_word, menu_link=menu_link, zip=zip)
 
-# Обработчик запросов на формирование аналитического отчета:
+@app.route('/index', methods=['GET'])
+def index():
+    return hello()
+
+# Обработчик запросов на добавление нового товара:
 @app.route('/analytics', methods=['POST', 'GET'])
 def get_analytics():
     # Получаем токен из заголовка HTTP-запроса
@@ -34,12 +101,15 @@ def get_analytics():
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+        roles=read_role_db(conn)
         if token:
             # Проверяем валидность токена и получаем данные пользователя
             user_data = extract_user_data_from_token(token)
             if user_data:
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
                 # Проверяем, что пользователь имеет роль "manager"
-                if user_data['role'] == 'manager':
+                if int(user_data['role']) == 2:
                     if request.method == 'POST':
                       if request.content_type == 'application/json':
                         analytics_data = request.json
@@ -51,17 +121,18 @@ def get_analytics():
 
                       # Поиск пользователя в базе данных
                       report = get_analytical_report(conn, start, finish)
-                      return render_template('analytics.html', report = report)
+                      return render_template('analytics.html', report = report, menu_word=menu_word, menu_link=menu_link, zip=zip)
                     else:
-                      return render_template('analytics.html')
+                      return render_template('analytics.html', menu_word=menu_word, menu_link=menu_link, zip=zip)
                 else:
-                  print("Неверный токен")
-                  response = make_response(render_template('login.html'), 403)
-                  return response
+                  current_role = 1
+                  return needlogin(current_role)
             else:
-              print("Требуется авторизация")
-              response = make_response(render_template('login.html'), 401)
-              return response
+              current_role = 1
+              return needlogin(current_role)
+        else:
+              current_role = 1
+              return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при обработке запроса: {e}'
@@ -69,37 +140,51 @@ def get_analytics():
        conn.close()
 
 
-# Обработчик запросов на получение списка товаров и добавление нового товара:
 @app.route('/product', methods=['GET', 'POST'])
 def get_product():
+    current_role = 1
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
     # Подключение к PostgreSQL
-    conn = psycopg2.connect(connection_string) #устанавливаем соединение с БД
-    try: #чтобы ошибка не вызвала сбой
+    conn = psycopg2.connect(connection_string)
+    try:
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                current_role = int(user_data['role'])
+        else:
+            current_role = 1
+
+        menu_word, menu_link = menu(current_role)
+
         if request.method == 'GET':
-          #if request.args:
             search_product_name = '%' + request.args.get('search_product_name', '') + '%'
             search_product_min_price = request.args.get('search_product_min_price', '')
             search_product_max_price = request.args.get('search_product_max_price', '')
             products = search_product_db(conn, search_product_name, search_product_min_price, search_product_max_price)
-          #else:
-            #products = read_product_db(conn)
-            return render_template('product.html', products=products)
+            return render_template('product.html', products=products, menu_word=menu_word, menu_link=menu_link, current_role=current_role, zip=zip)
         else:
-          #если POST-запрос, то взять данные полезной нагрузки из JSON в теле запроса, например, при отправке через Postman
-            if request.content_type == 'application/json':
-               new_product = request.json
-            elif request.form: #или берем данные из полей формы HTML-страницы
-              new_product = request.form
+            # Проверяем, что пользователь имеет роль operator
+            if int(user_data['role']) == 3:
+                #если POST-запрос, то взять данные полезной нагрузки из JSON в теле запроса, например, при отправке через Postman
+                if request.content_type == 'application/json':
+                    new_product = request.json
+                elif request.form: #или берем данные из полей формы HTML-страницы
+                    new_product = request.form
 
-            #парсим данные запроса для создания нового объекта
-            name = new_product.get('name')
-            provider = new_product.get('provider')
-            price = new_product.get('price')
-            quantity = new_product.get('quantity')
+                #парсим данные запроса для создания нового объекта
+                name = new_product.get('name')
+                provider = new_product.get('provider')
+                price = new_product.get('price')
+                quantity = new_product.get('quantity')
 
-            # Добавление нового товара в базу данных
-            product = add_product_to_db(conn, name, provider, price, quantity)
-            return redirect('/product') #перенаправляем на маршрут
+                # Добавление нового товара в базу данных
+                product = add_product_to_db(conn, name, provider, price, quantity)
+                return redirect('/product') #перенаправляем на маршрут
+            else:
+                current_role = 1
+                return needlogin(current_role)
     except Exception as e: #если ошибка, не получилось
         traceback.print_exc() #вывод ошибки в консоль
         return f'Ошибка при получении товаров из базы данных: {e}' #уведомление об ошибке
@@ -116,68 +201,85 @@ def add_product():
     conn = psycopg2.connect(connection_string)
     try:
         providers = read_provider_db(conn)
+        roles=read_role_db(conn)
         if token:
             # Проверяем валидность токена и получаем данные пользователя
             user_data = extract_user_data_from_token(token)
             if user_data:
-                # Проверяем, что пользователь имеет роль "manager"
-                if user_data['role'] == 'manager':
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
+                # Проверяем, что пользователь имеет роль operator
+                if int(user_data['role']) == 3:
                     if request.method == 'POST':
-                      response = make_response(render_template('product.html'), 200)
+                      response = make_response(render_template('product.html', menu_word=menu_word, menu_link=menu_link, zip=zip), 200)
                       return response
                     else:
-                      return render_template('new_product.html', providers=providers)
+                      return render_template('new_product.html', providers=providers, menu_word=menu_word, menu_link=menu_link, zip=zip)
                 else:
-                    print("У вас нет доступа к этой странице")
-                    response = make_response(render_template('login.html'), 403)
-                    return response
+                    current_role = 1
+                    return needlogin(current_role)
             else:
-                print("Неверный токен")
-                response = make_response(render_template('login.html'), 403)
-                return response
+                current_role = 1
+                return needlogin(current_role)
         else:
-            print("Требуется авторизация")
-            response = make_response(render_template('login.html'), 401)
-            return response
+            current_role = 1
+            return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при обработке запроса: {e}'
     finally:
        conn.close()
 
-# Обработчик запросов на получение списка поставщиков и добавление нового поставщика:
 @app.route('/provider', methods=['GET', 'POST'])
 def get_provider():
+    current_role = 1
+    # Получаем токен из заголовка HTTP-запроса
+    token = request.cookies.get('token')
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                current_role = int(user_data['role'])
+            else:
+                current_role =1
+        else:
+            current_role =1
+
+        menu_word, menu_link = menu(current_role)
         if request.method == 'GET':
             search_provider_name = '%' + request.args.get('search_provider_name', '') + '%'
             search_provider_phone = '%' + request.args.get('search_provider_phone', '') + '%'
             search_provider_email = '%' + request.args.get('search_provider_email', '') + '%'
             search_provider_address = '%' + request.args.get('search_provider_address', '') + '%'
             providers = search_provider_db(conn, search_provider_name, search_provider_phone, search_provider_email, search_provider_address)
-            return render_template('provider.html', providers=providers)
+
+            return render_template('provider.html', providers=providers, menu_word=menu_word, current_role=current_role, menu_link=menu_link, zip=zip)
         else:
-            if request.content_type == 'application/json':
-             new_provider = request.json
-            elif request.form:
-             new_provider = request.form
+            if user_data and int(user_data['role']) == 3:  # Проверяем, что пользователь имеет роль operator
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
 
-            name = new_provider.get('name')
-            phone = new_provider.get('phone')
-            email = new_provider.get('email')
-            address = new_provider.get('address')
+                if request.content_type == 'application/json':
+                    new_provider = request.json
+                elif request.form:
+                    new_provider = request.form
 
-            # Добавление нового товара в базу данных
-            provider = add_provider_to_db(conn, name, phone, email, address)
-            return redirect('/provider')
+                name = new_provider.get('name')
+                phone = new_provider.get('phone')
+                email = new_provider.get('email')
+                address = new_provider.get('address')
+
+                # Добавление нового поставщика в базу данных
+                provider = add_provider_to_db(conn, name, phone, email, address)
+                return redirect('/provider')
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при получении поставщиков из базы данных: {e}'
     finally:
-       conn.close()
-
+        conn.close()
 
 # Обработчик запросов на добавление поставщика:
 @app.route('/new_provider', methods=['POST', 'GET'])
@@ -188,29 +290,29 @@ def add_provider():
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+        roles=read_role_db(conn)
         if token:
             # Проверяем валидность токена и получаем данные пользователя
             user_data = extract_user_data_from_token(token)
             if user_data:
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
                 # Проверяем, что пользователь имеет роль "manager"
-                if user_data['role'] == 'manager':
+                if int(user_data['role']) == 3:
                     if request.method == 'POST':
-                      response = make_response(render_template('provider.html'), 200)
+                      response = make_response(render_template('provider.html', menu_word=menu_word, menu_link=menu_link, zip=zip), 200)
                       return response
                     else:
-                        return render_template('new_provider.html')
+                        return render_template('new_provider.html', menu_word=menu_word, menu_link=menu_link, zip=zip)
                 else:
-                    print("У вас нет доступа к этой странице")
-                    response = make_response(render_template('login.html'), 403)
-                    return response
+                    current_role = 1
+                    return needlogin(current_role)
             else:
-                print("Неверный токен")
-                response = make_response(render_template('login.html'), 403)
-                return response
+                current_role = 1
+                return needlogin(current_role)
         else:
-            print("Требуется авторизация")
-            response = make_response(render_template('login.html'), 401)
-            return response
+            current_role = 1
+            return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при обработке запроса: {e}'
@@ -223,6 +325,7 @@ def login():
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+        roles=read_role_db(conn)
         if request.method == 'POST':
             if request.content_type == 'application/json':
                 user_data = request.json
@@ -236,24 +339,30 @@ def login():
             user = find_user_in_db(conn, login, password, role)
             if user is not None:
                 # Генерация JWT-токена
-              if role =='manager':
+              if int(role)>1:
+                current_role = int(role)
+                menu_word, menu_link = menu(current_role)
                 token = generate_jwt_token(user, role, exp_time)
                 sysuser=user['id']
                 print('token', token)
                 # Запись JWT-токена в таблицу jwts
                 add_JWT_to_db(conn, datetime.utcnow(), token, sysuser)
                 # Добавление токена в заголовок запроса
-                response = make_response(render_template('index.html'), 200)
+                response = make_response(render_template('index.html', menu_word=menu_word, menu_link=menu_link, zip=zip), 200)
                 response.set_cookie('token', token)
                 return response
               else:
-               return render_template('index.html')
+               current_role = 1
+               menu_word, menu_link = menu(current_role)
+               return render_template('index.html', roles=roles, menu_word=menu_word, menu_link=menu_link, zip=zip)
             else:
-                response = make_response(render_template('registration.html'), 401)
+                current_role = 1
+                menu_word, menu_link = menu(current_role)
+                response = make_response(render_template('registration.html' , roles=roles, menu_word=menu_word, menu_link=menu_link, zip=zip), 401)
                 return response
         else:
-           response = make_response(render_template('login.html'), 200)
-           return response
+            current_role = 1
+            return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         if request.method == 'POST':
@@ -266,11 +375,12 @@ def login():
 
 # Обработчик регистрации нового пользователя:
 @app.route('/registration', methods=['POST', 'GET'])
+@auth.login_required
 def registration():
-
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+        roles=read_role_db(conn)
         if request.method == 'POST':
             if request.content_type == 'application/json':
                 user_data = request.json
@@ -282,11 +392,15 @@ def registration():
 
             # Регистрация пользователя в базе данных
             added_user = add_user_to_db(conn, user_data)
-            response = make_response(render_template('login.html'), 201)
+            current_role = int(role)
+            menu_word, menu_link = menu(current_role)
+            response = make_response(render_template('login.html', roles=roles, menu_word=menu_word, menu_link=menu_link, zip=zip), 201)
             return response
-#            return redirect('/login')
+            #return redirect('/login')
         else:
-            response = make_response(render_template('registration.html'), 200)
+            current_role = 1
+            menu_word, menu_link = menu(current_role)
+            response = make_response(render_template('registration.html', roles=roles, menu_word=menu_word, menu_link=menu_link, zip=zip), 200)
             return response
             #return redirect('/registration')
     except Exception as e:
@@ -307,12 +421,15 @@ def provider_ops(id):
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+      roles=read_role_db(conn)
       if token:
         # Проверяем валидность токена и получаем данные пользователя
         user_data = extract_user_data_from_token(token)
         if user_data:
+          current_role = int(user_data['role'])
+          menu_word, menu_link = menu(current_role)
           # Проверяем, что пользователь имеет роль "manager"
-          if user_data['role'] == 'manager':
+          if int(user_data['role']) ==3:
             provider = get_provider_from_db(conn, id)
             if not provider:
               return f'Поставщик с ID {id} не найден'
@@ -348,7 +465,7 @@ def provider_ops(id):
               elif request.method == 'DELETE':
                 try:
                     delete_provider_from_db(conn, id)
-                    response = make_response(render_template('provider.html'), 204)
+                    response = make_response(render_template('provider.html', menu_word=menu_word, menu_link=menu_link, zip=zip), 204)
                     return response
                 except Exception as e:
                     traceback.print_exc()
@@ -358,21 +475,18 @@ def provider_ops(id):
               else:
                 provider = get_provider_from_db(conn, id)
                 if provider:
-                    return render_template('update_provider.html', provider=provider)
+                    return render_template('update_provider.html', provider=provider, menu_word=menu_word, menu_link=menu_link, zip=zip)
                 else:
                     return f'Поставщик с ID {id} не найден'
           else:
-            print("У вас нет доступа к этой странице")
-            response = make_response(render_template('login.html'), 403)
-            return response
+            current_role = 1
+            return needlogin(current_role)
         else:
-          print("Неверный токен")
-          response = make_response(render_template('login.html'), 401)
-          return response
+          current_role = 1
+          return needlogin(current_role)
       else:
-        print("Требуется авторизация")
-        response = make_response(render_template('login.html'), 401)
-        return response
+        current_role = 1
+        return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при изменении поставщика: {e}'
@@ -390,17 +504,20 @@ def product_ops(id):
     conn = psycopg2.connect(connection_string)
     try:
       providers = read_provider_db(conn)
+      roles=read_role_db(conn)
       if token:
         # Проверяем валидность токена и получаем данные пользователя
         user_data = extract_user_data_from_token(token)
         if user_data:
-          # Проверяем, что пользователь имеет роль "manager"
-          if user_data['role'] == 'manager':
+          current_role = int(user_data['role'])
+          menu_word, menu_link = menu(current_role)
+          # Проверяем, что пользователь имеет роль оператор
+          if int(user_data['role']) ==3:
             product = get_product_from_db(conn, id)
             if not product:
               return f'Товар с ID {id} не найден'
             else:
-              if request.method == 'PUT':
+              if request.method == 'PUT' or request.method == 'PATCH':
                 if request.content_type == 'application/json':
                     updated_product = request.json
                 elif request.form:
@@ -431,7 +548,7 @@ def product_ops(id):
               elif request.method == 'DELETE':
                 try:
                     delete_product_from_db(conn, id)
-                    response = make_response(render_template('product.html'), 204)
+                    response = make_response(render_template('product.html', menu_word=menu_word, menu_link=menu_link, zip=zip), 204)
                     return response
                 except Exception as e:
                     traceback.print_exc()
@@ -441,21 +558,18 @@ def product_ops(id):
               else:
                 product = get_product_from_db(conn, id)
                 if product:
-                    return render_template('update_product.html', product=product, providers=providers)
+                    return render_template('update_product.html', product=product, providers=providers, menu_word=menu_word, menu_link=menu_link, zip=zip)
                 else:
                     return f'Товар с ID {id} не найден'
           else:
-            print("У вас нет доступа к этой странице")
-            response = make_response(render_template('login.html'), 403)
-            return response
+            current_role = 1
+            return needlogin(current_role)
         else:
-          print("Неверный токен")
-          response = make_response(render_template('login.html'), 401)
-          return response
+          current_role = 1
+          return needlogin(current_role)
       else:
-        print("Требуется авторизация")
-        response = make_response(render_template('login.html'), 401)
-        return response
+        current_role = 1
+        return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при изменении поставщика: {e}'
@@ -474,36 +588,43 @@ def get_order():
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
+        roles=read_role_db(conn)
+        orders_status=read_order_status_db(conn)
         if token:
             # Проверяем валидность токена и получаем данные пользователя
             user_data = extract_user_data_from_token(token)
             if user_data:
-                # Проверяем, что пользователь имеет роль "manager"
-                if user_data['role'] == 'manager':
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
+                # Проверяем, что пользователь имеет роль менеджер или оператор
+                if int(user_data['role']) > 1:
+                  search_order = request.form
                   if request.method == 'POST':
-                    search_order = request.form
-                    search_order_id = search_order.get('search_order_id', '')
                     search_order_customer = '%' + search_order.get('search_order_customer', '') + '%'
-                    search_order_state = search_order.get('search_order_state', '')
-                    search_order_address = '%' + search_order.get('search_order_address', '') + '%'
-                    search_order_sum = search_order.get('search_order_sum', '')
-                    search_order_date = search_order.get('search_order_date', '')
-                    orders = search_order_db(conn, search_order_id, search_order_customer, search_order_state, search_order_address, search_order_sum, search_order_date)
+                    search_order_id =  None
+                    search_order_status = None
+                    search_order_ammount_min = None
+                    search_order_ammount_max = None
+                    search_order_date =None
                   else:
-                    orders = read_order_db(conn)
-                  return render_template('order.html', orders=orders)
+                    search_order_customer=None
+                    search_order_id =  request.args.get('search_order_id', '')
+                    search_order_status = request.args.get('search_order_status', '')
+                    search_order_ammount_min = request.args.get('search_order_ammount_min', '')
+                    search_order_ammount_max =request.args.get('search_order_ammount_max', '')
+                    search_order_date = request.args.get('search_order_date', '')
+                  orders = search_order_db(conn, search_order_id, search_order_customer, search_order_status, search_order_ammount_min, search_order_ammount_max, search_order_date)
+                  orders_status=read_order_status_db(conn)
+                  return render_template('order.html', orders=orders, orders_status=orders_status, menu_word=menu_word, menu_link=menu_link, zip=zip)
                 else:
-                    print("Вы не менеджер, просмотр запрещен")
-                    response = make_response(render_template('login.html'), 401)
-                    return response
+                    current_role = 1
+                    return needlogin(current_role)
             else:
-                print("Надо войти как менеджер")
-                response = make_response(render_template('login.html'), 403)
-                return response
+                current_role = 1
+                return needlogin(current_role)
         else:
-          print("Надо войти в систему")
-          response = make_response(render_template('login.html'), 403)
-          return response
+          current_role = 1
+          return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
         return f'Ошибка при получении заказов из базы данных: {e}'
@@ -514,6 +635,56 @@ def get_order():
 # Обработчик изменения заказа по id:
 @app.route('/order/<int:id>', methods=['GET', 'POST', 'PUT'])
 def order_ops(id):
+    token = request.cookies.get('token')
+    print('token ', token)
+
+    conn = psycopg2.connect(connection_string)
+    try:
+        roles = read_role_db(conn)
+        orders_status = read_order_status_db(conn)
+        if token:
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
+                if current_role > 1:
+                    order = get_order_from_db(conn, id)
+                    if not order:
+                        return f'Заказ с ID {id} не найден', 404
+                    else:
+                        if request.method == 'PUT':
+                            updated_order_status = None
+                            if request.content_type == 'application/json':
+                                updated_order_status = request.json
+                            elif request.form:
+                                updated_order_status = request.form
+                            else:
+                                updated_order_status = request.args
+
+                            status = updated_order_status.get('status', order['status'])
+
+                            updated_order = update_order_in_db(conn, id, status)
+                            if updated_order:
+                                return render_template('update_order.html', order=updated_order, orders_status=orders_status, menu_word=menu_word, menu_link=menu_link, zip=zip)
+                            else:
+                                return f'Не удалось обновить заказ с ID {id}', 500
+                        else:
+                            return render_template('update_order.html', order=order, orders_status=orders_status, menu_word=menu_word, menu_link=menu_link, zip=zip)
+                else:
+                    return needlogin(current_role)
+            else:
+                return needlogin(1)
+        else:
+            return needlogin(1)
+    except Exception as e:
+        traceback.print_exc()
+        return f'Ошибка при изменении заказа: {e}', 500
+    finally:
+        conn.close()
+
+# Обработчик запросов на получение списка клиентов:
+@app.route('/customer', methods=['GET', 'POST'])
+def get_customer():
     # Получаем токен из заголовка HTTP-запроса
     token = request.cookies.get('token')
     print('token ', token)
@@ -521,56 +692,45 @@ def order_ops(id):
     # Подключение к PostgreSQL
     conn = psycopg2.connect(connection_string)
     try:
-      if token:
-        # Проверяем валидность токена и получаем данные пользователя
-        user_data = extract_user_data_from_token(token)
-        if user_data:
-          # Проверяем, что пользователь имеет роль "manager"
-          if user_data['role'] == 'manager':
-            order = get_order_from_db(conn, id)
-            print(order)
-            if not order:
-              return f'Заказ с ID {id} не найден'
+        customers_status = read_customers_status_db(conn)
+        roles = read_role_db(conn)
+        #customers = read_customer_db(conn)
+        if token:
+            # Проверяем валидность токена и получаем данные пользователя
+            user_data = extract_user_data_from_token(token)
+            if user_data:
+                current_role = int(user_data['role'])
+                menu_word, menu_link = menu(current_role)
+                # Проверяем, что пользователь имеет роль "manager"
+                if current_role == 2:
+                    if request.method == 'POST':
+                        search_customer_name = '%' + request.form.get('search_customer_name', '') + '%'
+                        search_customer_phone = '%' + request.form.get('search_customer_phone', '') + '%'
+                        search_customer_email = '%' + request.form.get('search_customer_email', '') + '%'
+                        search_customer_status = request.form.get('search_customer_status', None)
+
+                        customers = search_customer_db(conn, search_customer_name, search_customer_phone, search_customer_status, search_customer_email)
+
+                    else:
+                        search_customer_status = request.args.get('search_customer_status', None)
+                        customers = search_customer_db(conn, None, None, search_customer_status, None)
+
+                    return render_template('customer.html', customers=customers, customers_status=customers_status, menu_word=menu_word, menu_link=menu_link, zip=zip)
+                else:
+                    current_role = 1
+                    return needlogin(current_role)
             else:
-              if request.method == 'PUT':
-                if request.content_type == 'application/json':
-                    updated_order_state = request.json
-                elif request.form:
-                    updated_order_state = request.form
-                else:
-                    updated_order_state = request.args
-
-                if  updated_order_state.get('state'):
-                  state = updated_order_state.get('state')
-                else:
-                  state = order['state']
-
-                #Обновление данных поставщика в базе данных
-                if update_order_in_db(conn, id, state):
-                  return ('', 200)
-              else:
-                order = get_order_from_db(conn, id)
-                if order:
-                    return render_template('update_order.html', order=order)
-                else:
-                    return f'Заказ с ID {id} не найден'
-          else:
-            print("У вас нет доступа к этой странице")
-            response = make_response(render_template('login.html'), 403)
-            return response
+                current_role = 1
+                return needlogin(current_role)
         else:
-          print("Неверный токен")
-          response = make_response(render_template('login.html'), 403)
-          return response
-      else:
-        print("Требуется авторизация")
-        response = make_response(render_template('login.html'), 401)
-        return response
+            current_role = 1
+            return needlogin(current_role)
     except Exception as e:
         traceback.print_exc()
-        return f'Ошибка при изменении поставщика: {e}'
+        return f'Ошибка при получении клиентов из базы данных: {e}'
     finally:
-       conn.close()
+        conn.close()
+
 
 # Запуск приложения
 app.run()
