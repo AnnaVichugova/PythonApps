@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,24 +11,11 @@
     <h3>Демо-пример Анны Вичуговой по REST API</h1>
     <table>
         <tr>
+            {% for word, link in zip(menu_word, menu_link) %}
             <td>
-                 <a href='/index'>Главная</a></td>
+                <a href="{{ link }}">{{ word }}</a>
             </td>
-            <td>
-                 <a href='/login'>Войти в ЛК</a></td>
-            </td>
-            <td>
-                 <a href='/product'>Каталог товаров</a>
-            </td>
-            <td>
-                 <a href='/provider'>Список поставщиков</a>
-            </td>
-            <td>
-                 <a href='/order'>Заказы</a>
-            </td>
-            <td>
-                <a href='/analytics'>Отчет</a>
-            </td>
+            {% endfor %}
         </tr>
     </table>
     <img src="{{ url_for('static', filename='backpic.png') }}" style="display: block; margin-top: 20px;">
