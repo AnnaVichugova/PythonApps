@@ -12,28 +12,15 @@
 </head>
 <body>
     <h1>Изменение заказа</h1>
-        <table>
-          <tr>
+    <table>
+        <tr>
+            {% for word, link in zip(menu_word, menu_link) %}
             <td>
-                 <a href='/index'>Главная</a></td>
+                <a href="{{ link }}">{{ word }}</a>
             </td>
-            <td>
-                 <a href='/login'>Войти в ЛК</a></td>
-            </td>
-            <td>
-                 <a href='/product'>Каталог товаров</a>
-            </td>
-            <td>
-                 <a href='/provider'>Список поставщиков</a>
-            </td>
-            <td>
-                 <a href='/order'>Заказы</a>
-            </td>
-            <td>
-                <a href='/analytics'>Отчет</a>
-            </td>
-           </tr>
-        </table>
+            {% endfor %}
+        </tr>
+    </table>
     <table>
             <tr>
                 <td>Номер </td>
@@ -45,20 +32,16 @@
             </tr>
             <tr>
                 <td>Сумма</td>
-                <td>{{ order.sum }}</td>
+                <td>{{ order.ammount }}</td>
             </tr>
             <tr>
                 <td>Дата создания</td>
                 <td>{{ order.date }}</td>
             </tr>
             <tr>
-                <td>Доставка</td>
-                <td>{{ order.delivery }}</td>
-            </tr>
-            <tr>
                </td>
                 <td>Текущее состояние</td>
-                <td>{{ order.state }}</td>
+                <td>{{ order.status }}</td>
             </tr>
     </tr>
     </table>
@@ -66,13 +49,17 @@
     <form id="form" method="POST" action="/order/{{ order.id }}" onSubmit="myFunctionName(); return false">
       <input type="hidden" name="_method" value="PUT">
         <div class="form-group">
-        <label for="state">Новое состояние:</label>
-        <select id="state" name="state">
-        <option value=2>в обработке</option>
-        <option value=3>собран</option>
-        <option value=5>отменен магазином</option>
+        <label for="status">Новое состояние:</label>
+       <select id="status" name="status">
+	   <option value=></option>
+               {% for order_status in orders_status %}
+               <option value={{ order_status.id }}>{{ order_status.name }}</option>
+               {% endfor %}
         </select>
         </div>
+		
+		
+		
        <button type='button' id='change-button'>Изменить</button>
     </form>
 
@@ -86,9 +73,6 @@
     url: "/order/{{ order.id }}",
     method: "PUT",
 	data:$("#form").serialize(),
-    headers: {
-      "X-my": "aaaaaaaaaaaaaaaaaaaaaaaa"
-    },
     success : function () {
       window.location.href = "/order";
     },
