@@ -31,7 +31,6 @@ def search_product_db(conn, search_product_name, search_product_min_price, searc
     finally:
         cursor.close()
 
-
 # Функция поиска поставщиков  из таблицы поставщиков
 def search_provider_db(conn, search_provider_name, search_provider_phone, search_provider_email, search_provider_address):
     conn = psycopg2.connect(connection_string)
