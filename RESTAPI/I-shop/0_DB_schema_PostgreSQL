@@ -62,6 +62,7 @@ CREATE TABLE letter(
     email VARCHAR NOT NULL,
     mail TEXT NOT NULL
 );
+
 ALTER TABLE
     product ADD CONSTRAINT product_provider_foreign FOREIGN KEY(provider) REFERENCES provider(id);
 ALTER TABLE
