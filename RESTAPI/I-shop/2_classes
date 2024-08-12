@@ -10,14 +10,12 @@ class Customer(BaseModel):
     status:  Optional[Customer_Status] = None
     email: EmailStr
 
-
 class Provider(BaseModel):
     id: int
     name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
     address: Optional[str] = None
-
 
 class Product(BaseModel):
     id: int
