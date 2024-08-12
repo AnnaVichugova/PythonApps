@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Клиенты интернет-магазина</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+</head>
+<body>
+    <h1>Клиенты интернет-магазина</h1>
+    <table>
+        <tr>
+            {% for word, link in zip(menu_word, menu_link) %}
+            <td>
+                <a href="{{ link }}">{{ word }}</a>
+            </td>
+            {% endfor %}
+        </tr>
+    </table>
+              <form method="GET" action="/customer">
+          <table>
+            <tr>
+              <td>
+            <div class="form-group">
+               <label for="search_customer_status">Статус клиента</label>
+			   
+               <select id="search_customer_status" name="search_customer_status">
+               <option value=></option>
+			   {% for customer_status in customers_status %}
+               <option value={{ customer_status.id }}>{{ customer_status.name }}</option>
+               {% endfor %}
+               </select>
+            </div>
+             </td>
+                <td>
+                    <button type="submit" class="btn btn-primary">Найти клиента по статусу</button>
+                </td>
+            </tr>
+          </table>
+		  </form>
+          <form method="POST" action="/customer">
+          <table>
+            <tr>
+                <td>
+                  <div class="form-group">
+                    <label for="search_customer_name">Имя клиента</label>
+                    <input type="text" class="form-control" id="search_customer_name" placeholder="имя клиента для поиска" name="search_customer_name">
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_customer_phone">Телефон клиента</label>
+                    <input type="text" class="form-control" id="search_customer_phone" placeholder="телефон клиента для поиска" name="search_customer_phone">
+                  </div>
+                </td>
+                <td>
+                  <div class="form-group">
+                    <label for="search_customer_email">Email клиента</label>
+                    <input type="text" class="form-control" id="search_customer_email" placeholder="email клиента для поиска" name="search_customer_email">
+                  </div>
+                </td>
+                <td>
+                    <button type="submit" class="btn btn-primary">Найти клиента по параметрам</button>
+                </td>
+            </tr>
+          </table>
+          </form>
+    <table>
+        <thead>
+            <tr>
+                <th>Имя </th>
+                <th>Телефон</th>
+                 <th>Статус</th>
+                <th>Емейл</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for customer in customers %}
+            <tr>
+                <td>{{ customer.name }}</td>
+                <td>{{ customer.phone }}</td>
+                <td>{{ customer.status }}</td>
+                <td>{{ customer.email }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
