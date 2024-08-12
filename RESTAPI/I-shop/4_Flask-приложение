@@ -4,7 +4,6 @@ public_url = ngrok.connect(addr="5000", proto="http")
 #Вывод публичного URL для доступа к веб-интерфейсу
 print("Адрес:", public_url)
 
-
 # Создание экземпляра Flask-приложения
 app = Flask(__name__)
 
