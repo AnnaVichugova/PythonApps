@@ -1,8 +1,10 @@
 #############################новая ячейка в Google Colab###########################################################
+#############################новая ячейка в Google Colab###########################################################
 # Установка необходимых библиотек
 !pip install flask==2.2.5 #сам фреймворк Flask
-!pip install flask-ngrok #библиотека для тунелирования, чтобы достучаться к веб-серверу извне
-!pip install pyngrok
+!pip install flask-ngrok==0.0.25 #библиотека для тунелирования, чтобы достучаться к веб-серверу извне
+!pip install pyngrok==7.2.0 #утилита тунелирования, чтобы достучаться к веб-серверу извне
+!pip install flask_httpauth==4.8.0 #для базовой аутентификации
 !pip install pydantic[email] #для автопроверки полей ввода email
 
 # Импорт модулей и библиотек
@@ -14,7 +16,10 @@ from matplotlib.backends.backend_pdf import PdfPages #для формирова�
 import pandas as pd #для датафреймов
 from google.colab import files #для работы с файловым пространством Colab
 
-from flask import Flask, session, jsonify, request, render_template, Response, make_response, redirect #для веб-приложения
+from flask import Flask, session, jsonify, request, render_template, Response, make_response, redirect, url_for #для веб-приложения
+
+from flask_httpauth import HTTPBasicAuth #для базовой аутентификации
+from werkzeug.security import generate_password_hash, check_password_hash #для базовой аутентификации
 from pydantic import BaseModel, EmailStr, ValidationError #для создания классов
 from enum import Enum #для перечислений
 from typing import Union, Optional, List #для создания классов
@@ -23,6 +28,8 @@ import psycopg2 #для работы с PostgreSQL
 
 import jwt #для JWT-токена
 from datetime import date, datetime, timedelta #для работы с датой и временем
+
+from pyngrok import ngrok #для тунелирования, чтобы достучаться к веб-серверу извне
 
 #устанавливаем свой токен ngrok для тунелирования, взять личный токен здесь https://dashboard.ngrok.com/
 !ngrok authtoken 'ваш свой токен ngrok для тунелирования' #!!!!подставить свой токен ngrok для тунелирования!!!!
