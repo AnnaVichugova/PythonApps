@@ -1,10 +1,9 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html>
    <head>
       <title>Добавление товара</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
       <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
@@ -15,24 +14,11 @@
         <h2>Добавление товара</h2>
     <table>
         <tr>
+            {% for word, link in zip(menu_word, menu_link) %}
             <td>
-                 <a href='/index'>Главная</a></td>
+                <a href="{{ link }}">{{ word }}</a>
             </td>
-            <td>
-                 <a href='/login'>Войти в ЛК</a></td>
-            </td>
-            <td>
-                 <a href='/product'>Каталог товаров</a>
-            </td>
-            <td>
-                 <a href='/provider'>Список поставщиков</a>
-            </td>
-            <td>
-                 <a href='/order'>Заказы</a>
-            </td>
-            <td>
-                <a href='/analytics'>Отчет</a>
-            </td>
+            {% endfor %}
         </tr>
     </table>
          <form method="POST" action="/product">
@@ -43,6 +29,7 @@
 
             <div class="form-group">
                <label for="provider">Поставщик:</label>
+			   <option value=''></option>
                <select id="provider" name="provider">
                {% for provider in providers %}
                <option value="{{ provider.id }}">{{ provider.name }}</option>
