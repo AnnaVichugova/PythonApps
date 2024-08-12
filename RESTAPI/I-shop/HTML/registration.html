@@ -13,28 +13,15 @@
    <body>
       <div class="container mt-3">
         <h2>Регистрация пользователя</h2>
-          <table>
-             <td>
-                 <a href='/index'>Главная</a></td>
-            </td>
-            <tr>
-                <td>
-                     <a href='/login'>Войти в ЛК</a></td>
-                </td>
-                <td>
-                     <a href='/product'>Каталог товаров</a>
-                </td>
-                <td>
-                     <a href='/provider'>Список поставщиков</a>
-                </td>
-                <td>
-                     <a href='/order'>Заказы</a>
-                </td>
+    <table>
+        <tr>
+            {% for word, link in zip(menu_word, menu_link) %}
             <td>
-                <a href='/analytics'>Отчет</a>
+                <a href="{{ link }}">{{ word }}</a>
             </td>
-            </tr>
-          </table>
+            {% endfor %}
+        </tr>
+    </table>
          <form method="POST" action="/registration">
             <div class="form-group">
                <label for="login">Имя:</label>
@@ -45,13 +32,13 @@
                <input type="password" class="form-control" id="password" placeholder="пароль" name="password" required>
             </div>
             <div class="form-group">
-               <label for="role">Роль:</label>
+               <label for="role">Роль</label>
                <select id="role" name="role">
-               <option value="customer">Покупатель</option>
-               <option value="manager">Менеджер интернет-магазина</option>
-               <option value="operator">Оператор склада</option>
+               {% for role in roles %}
+               <option value={{ role.id }}>{{ role.name }}</option>
+               {% endfor %}
                </select>
-            </div>
+        </div>
             <button type="submit" class="btn btn-primary">ЗАРЕГИСТРИРОВАТЬСЯ</button>
          </form>
       </div>
