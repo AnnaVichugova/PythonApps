@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto"; //для работы с датой и временем
+
+package order;
+
+// ИНН поставщика
+message ProviderINN {
+  string inn = 1; // ИНН поставщика
+}
+
+// Информация о поставщике
+message ProviderData {
+  string inn = 1; // ИНН поставщика
+  string name = 2; // Имя поставщика
+  string phone = 3; // Телефон поставщика
+  string email = 4; // Электронная почта поставщика
+  string address = 5; // Адрес поставщика
+}
+
+// Информация о товаре в заказе
+message OrderItem {
+    string product = 1;
+    int32 quantity = 2;
+    double price = 3;
+}
+
+// Запрос на заказ
+message OrderRequest {
+  ProviderINN provider = 1; // Информация о поставщика
+  repeated OrderItem item = 2; // Список товаров в заказе
+}
+
+// Унарный ответ на поток заказов
+message OrderResponse {
+    int32 quantity = 1;
+    double amount = 2;
+    google.protobuf.Timestamp orderdate = 3;
+}
+
+// Сервис
+service OrderService {
+  rpc GetInfoByINN (ProviderINN) returns (ProviderData);
+  rpc StreamOrders (stream OrderRequest) returns (OrderResponse);
+}
