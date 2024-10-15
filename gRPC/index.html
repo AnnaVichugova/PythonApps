@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отправка заказов поставщику</title>
+    <style>
+        input[type="text"] {
+            width: 40%;
+        }
+    </style>
+</head>
+<body>
+    <h2>Введите ИНН поставщика, чтобы узнать о нем полную информацию</h2>
+    <form method="POST">
+        <label for="inn">ИНН:</label>
+        <input type="text" id="inn" name="inn">
+        <button type="submit">Получить информацию</button>
+    </form>
+    {% if provider_info %}
+        <h2>Информация о поставщике с ИНН {{ provider_info.inn }}</h2>
+        <form method="POST">
+            <input type="hidden" name="send_orders" value="true">
+            <label for="inn-r">ИНН:</label>
+            <input type="text" id="inn-r" name="inn_r" value="{{ provider_info.inn }}" readonly>
+            <br>
+            <label for="name">Имя:</label>
+            <input type="text" id="name" name="name" value="{{ provider_info.name }}" readonly>
+            <br>
+            <label for="phone">Телефон:</label>
+            <input type="text" id="phone" name="phone" value="{{ provider_info.phone }}" readonly>
+            <br>
+            <label for="email">Email:</label>
+            <input type="text" id="email" name="email" value="{{ provider_info.email }}" readonly>
+            <br>
+            <label for="address">Адрес:</label>
+            <input type="text" id="address" name="address" value="{{ provider_info.address }}" readonly>
+            <h2>Отправьте заказы этому поставщику</h2>
+            <button type="submit">Отправить заказы</button>
+            {% if products %}
+            <h3>Заказы, отправленные этому поставщику:</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Продукт</th>
+                        <th>Количество, шт.</th>
+                        <th>Цена, руб</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in products %}
+                        <tr>
+                            <td>{{ order.product }}</td>
+                            <td>{{ order.quantity }}</td>
+                            <td>{{ order.price }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </form>
+    {% endif %}
+    {% if orderdate %}
+        <p><b>Дата и время</b> {{ orderdate }}</p>
+    {% endif %}
+    {% if quantity %}
+        <p><b>Заказано товаров</b> {{ quantity }}</p>
+    {% endif %}
+    {% if amount %}
+        <p><b>На общую сумму</b> {{ amount }}</p>
+    {% endif %}
+</body>
+</html>
