@@ -4,6 +4,7 @@ public_url = ngrok.connect(addr="5000", proto="http")
 #Вывод публичного URL для доступа к веб-интерфейсу
 print("Адрес:", public_url)
 
+
 # Создание экземпляра Flask-приложения
 app = Flask(__name__)
 
@@ -36,8 +37,8 @@ def menu(role):
     menu_link = ['/', '/product', '/provider']
 
     if role == 1:
-        menu_word += ['ВХОД']
-        menu_link += ['/login']
+        menu_word += ['ВХОД', 'Регистрация']
+        menu_link += ['/login', '/registration']
 
     if role == 2:
         menu_word += ['Заказы', 'Клиенты', 'Аналитика', 'ВЫХОД']
@@ -516,7 +517,7 @@ def product_ops(id):
             if not product:
               return f'Товар с ID {id} не найден'
             else:
-              if request.method == 'PUT' or request.method == 'PATCH':
+              if request.method == 'PUT':
                 if request.content_type == 'application/json':
                     updated_product = request.json
                 elif request.form:
