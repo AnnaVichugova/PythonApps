@@ -1,0 +1,129 @@
+@startuml
+skinparam linetype ortho
+
+class user {
+    - login: str           
+    - email: str    
+    - phone: str
+    - role: Role
+    + info()            
+}
+
+class document{
+    - number: str      
+    - created_timestamp: datetime     
+    - file: doc_file           
+    - author: user
+    - status: document_status
+    + add_file(doc_file: doc_file)
+    + delete_file()
+    + publish_document()
+    + review_document()
+    + approve_document()
+    + reject_document()
+    + info()   
+}
+
+class doc_file{   
+    - format: FileFormat           
+    - size: int
+}
+
+class task{
+    - name: str    
+    - created_timestamp: datetime
+    - started_timestamp: datetime
+    - finished_timestamp: datetime     
+    - executor: user           
+    - status: task_status
+    + start_task()
+    + receive_task()
+    + decline_task()
+    + cancel_task()
+    + perform_task()
+    + accept_task()
+    + complete_task()
+    + reject_task()
+    + freeze_task()
+    + finish_task()
+    + update_task_status()
+    + info()
+}
+
+class route{    
+    - created_timestamp: datetime
+    - started_timestamp: datetime
+    - finished_timestamp: datetime          
+    - document: document
+    - initiator: user            
+    - tasks: List[task]
+    - status: route_status
+    + add_task(task: task)
+    + delete_task(task: task)
+    + start_route()       
+    + cancel_route()
+    + perform_route()
+    + complete_route()     
+    + get_all_tasks()
+    + update_route_status()
+    + info()
+
+}
+
+
+enum task_status {  
+    + new = 'новая'
+    + assigned = 'поставлена'
+    + started = 'принята к исполнению'
+    + declined_by_executor = 'отклонена исполнителем'
+    + performing = 'выполняется'
+    + canceled_by_initiator = 'отменена инициатором'
+    + completed_by_executor = 'согласована исполнителем'
+    + rejected_by_executor = 'несогласована исполнителем'
+    + frozen = 'заморожена'
+    + accepted_by_initiator = 'принята инициатором'
+    + finished = 'завершена'
+}
+
+enum route_status {  
+    + new = 'новый'
+    + started = 'начат'
+    + in_progress = 'выполняется'
+    + canceled = 'отменен'    
+    + completed = 'завершен'
+}
+
+enum role {  
+    + secretary = 'секретарь'
+    + administrator = 'администратор'
+    + employee = 'сотрудник'           
+}
+
+enum file_format {  
+    + pdf = 'pdf'
+    + doc = 'doc'
+    + xls = 'xls'
+    + ppt = 'ppt'           
+}
+
+enum document_status{  
+    + new = 'новый'
+    + published = 'опубликован'
+    + on_review = 'на согласовании'
+    + approved = 'согласован'
+    + rejected = 'несогласован'
+} 
+
+user "1..*" o--> "1" role
+task_status "1" <--o "1..*" task 
+route_status "1" <--o "1..*" route 
+route "1" *-> "1..*" task
+route "1..*" o--> "1" document
+document "1..*" o--> "1" user
+route "1..*" o--> "1" user
+
+doc_file "0..1" <-o "1" document
+file_format "1" <--o "1..*" doc_file
+task "1..*" o--> "1"user
+document "1..*" o--> "1" document_status
+@enduml
