@@ -1,0 +1,72 @@
+@startuml
+title Диаграмма состояний для документа - класс document
+[*] --> new
+new : новый
+new --> published : publish_document()
+published : опубликован
+published --> on_review : review_document()
+on_review : на согласовании
+on_review--> approved : approve_document()
+on_review --> rejected : reject_document()
+approved: согласован
+rejected: несогласован
+approved  --> [*]
+rejected --> [*]
+@enduml
+
+
+
+@startuml
+title Диаграмма состояний для маршрута - класс route
+[*] --> new
+new : новый
+new --> started : start_route()
+started : начат
+started --> in_progress : perform_route()
+in_progress : выполняется
+in_progress --> completed : complete_route()
+in_progress --> canceled : cancel_route()
+canceled: отменен
+completed: завершен
+completed  --> [*]
+canceled --> [*]
+@enduml
+
+
+
+
+@startuml
+title Диаграмма состояний для задачи - класс task
+[*] --> new
+
+new : новая
+assigned : поставлена
+started : принята к исполнению
+declined_by_executor : отклонена исполнителем
+canceled_by_initiator : отменена инициатором
+completed_by_executor : согласована исполнителем
+frozen : заморожена
+performing : выполняется
+accepted_by_initiator : принята инициатором
+finished : завершена
+
+new --> assigned : start_task()
+assigned --> started : receive_task()
+started --> declined_by_executor : decline_task()
+started --> performing : perform_task()
+performing --> completed_by_executor : complete_task()
+rejected_by_executor : несогласована исполнителем
+performing --> rejected_by_executor : reject_task()
+performing --> frozen: freeze_task()
+frozen --> performing: perform_task()
+frozen --> canceled_by_initiator : cancel_task()
+canceled_by_initiator --> finished : finish_task()
+completed_by_executor --> accepted_by_initiator : accept_task()
+rejected_by_executor --> accepted_by_initiator : accept_task()
+declined_by_executor --> accepted_by_initiator : accept_task()
+accepted_by_initiator --> assigned : start_task()
+accepted_by_initiator --> canceled_by_initiator : cancel_task()
+accepted_by_initiator --> finished : finish_task()
+finished --> [*]
+@enduml
+
