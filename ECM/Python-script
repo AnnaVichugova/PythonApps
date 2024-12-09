@@ -1,0 +1,339 @@
+################################# ячейка 1 - импорт модулей ###############
+from datetime import datetime
+from enum import Enum
+from typing import List, Optional
+################################# ячейка 2 - создание классов ###############
+class role(Enum):
+    secretary = 'секретарь'
+    administrator = 'администратор'
+    employee = 'сотрудник'
+
+class task_status(Enum):
+    new = 'новая'
+    assigned = 'поставлена'
+    started = 'принята к исполнению'
+    declined_by_executor = 'отклонена исполнителем'
+    performing = 'выполняется'
+    canceled_by_initiator = 'отменена инициатором'
+    completed_by_executor = 'согласована исполнителем'
+    rejected_by_executor = 'несогласована исполнителем'
+    frozen = 'заморожена'
+    accepted_by_initiator = 'принята инициатором'
+    finished = 'завершена'
+
+class route_status(Enum):
+    new = 'новый'
+    started = 'начат'
+    in_progress = 'выполняется'
+    canceled = 'отменен'
+    completed = 'завершен'
+
+class file_format(Enum):
+    pdf = 'pdf'
+    doc = 'doc'
+    xls = 'xls'
+    ppt = 'ppt'
+
+class document_status(Enum):
+    new = 'новый'
+    published = 'опубликован'
+    on_review = 'на согласовании'
+    approved = 'согласован'
+    rejected = 'несогласован'
+
+class user:
+    def __init__(self, login: str, email: str, phone: str, role: role):
+        self.login = login
+        self.email = email
+        self.phone = phone
+        self.role = role
+
+    def info(self):
+        return {
+            "login": self.login,
+            "email": self.email,
+            "phone": self.phone,
+            "role": self.role.value
+        }
+
+class doc_file:
+    def __init__(self, file_format: file_format, size: int):
+        self.file_format = file_format
+        self.size = size
+
+    def info(self):
+        return {
+            "file_format": self.file_format.value,
+            "size": self.size
+        }
+
+class document:
+    def __init__(self, number: str, author: user, published_timestamp: Optional[datetime] = None, doc_file: Optional[doc_file] = None):
+        self.number = number
+        self.created_timestamp = datetime.now()
+        self.published_timestamp = published_timestamp
+        self.status = document_status.new
+        self.author = author
+        self.doc_file = doc_file
+
+    def add_file(self, doc_file: doc_file):
+        self.doc_file = doc_file
+
+    def delete_file(self):
+        self.doc_file = None
+
+    def publish_document(self):
+        self.status = document_status.published
+        self.published_timestamp = datetime.now()
+
+    def review_document(self):
+        self.status = document_status.on_review
+
+    def approve_document(self):
+        self.status = document_status.approved
+
+    def reject_document(self):
+        self.status = document_status.rejected
+
+    def info(self):
+        return {
+            "number": self.number,
+            "created_timestamp": self.created_timestamp.isoformat() if self.created_timestamp else None,
+            "published_timestamp": self.published_timestamp.isoformat() if self.published_timestamp else None,
+            "author": self.author.info(),
+            "status": self.status.value,
+            "file": self.doc_file.info() if self.doc_file else None
+        }
+
+class task:
+    def __init__(self, name: str, executor: user, started_timestamp: Optional[datetime] = None, finished_timestamp: Optional[datetime] = None):
+        self.name = name
+        self.created_timestamp = datetime.now()
+        self.status = task_status.new
+        self.started_timestamp = started_timestamp
+        self.finished_timestamp = finished_timestamp
+        self.executor = executor
+        self._status_change_callback = None
+
+    def set_status_change_callback(self, callback):
+        self._status_change_callback = callback
+
+    def _notify_status_change(self):
+        if self._status_change_callback:
+            self._status_change_callback(self)
+        self.update_task_status()
+
+    def start_task(self):
+        self.status = task_status.started
+        self.started_timestamp = datetime.now()
+        self._notify_status_change()
+
+
+    def receive_task(self):
+        self.status = task_status.assigned
+        self._notify_status_change()
+
+
+    def decline_task(self):
+        self.status = task_status.declined_by_executor
+        self._notify_status_change()
+
+    def cancel_task(self):
+        self.status = task_status.canceled_by_initiator
+        self.finished_timestamp = datetime.now()
+        self._notify_status_change()
+
+
+    def perform_task(self):
+        self.status = task_status.performing
+        self._notify_status_change()
+
+
+    def accept_task(self):
+        self.status = task_status.accepted_by_initiator
+        self._notify_status_change()
+
+
+    def complete_task(self):
+        self.status = task_status.completed_by_executor
+        self._notify_status_change()
+
+
+    def reject_task(self):
+        self.status = task_status.rejected_by_executor
+        self._notify_status_change()
+
+
+    def freeze_task(self):
+        self.status = task_status.frozen
+        self._notify_status_change()
+
+
+    def finish_task(self):
+        self.status = task_status.finished
+        self.finished_timestamp = datetime.now()
+        self._notify_status_change()
+
+    def update_task_status(self):
+        if self.status in [task_status.accepted_by_initiator]:
+            self.finish_task()
+
+    def info(self):
+        return {
+            "name": self.name,
+            "created_timestamp": self.created_timestamp.isoformat() if self.created_timestamp else None,
+            "started_timestamp": self.started_timestamp.isoformat() if self.started_timestamp else None,
+            "finished_timestamp": self.finished_timestamp.isoformat() if self.finished_timestamp else None,
+            "executor": self.executor.info(),
+            "status": self.status.value
+        }
+
+class route:
+    def __init__(self, document: 'document', initiator: 'user', started_timestamp: Optional[datetime] = None, finished_timestamp: Optional[datetime] = None):
+        self.created_timestamp = datetime.now()
+        self.status = route_status.new
+        self.started_timestamp = started_timestamp
+        self.finished_timestamp = finished_timestamp
+        self.document = document
+        self.initiator = initiator
+        self.tasks: List[task] = []
+
+    def add_task(self, task: task):
+        task.set_status_change_callback(self.update_route_status)
+        self.tasks.append(task)
+        self.update_route_status()
+
+    def delete_task(self, task: task):
+        self.tasks.remove(task)
+        self.update_route_status()
+
+    def start_route(self):
+        self.status = route_status.started
+        self.started_timestamp = datetime.now()
+        self.document.publish_document()
+        for task in self.tasks :
+            task.status = task_status.assigned
+
+    def cancel_route(self):
+        self.status = route_status.canceled
+        self.finished_timestamp = datetime.now()
+        for task in self.tasks :
+            task.status = task_status.canceled_by_initiator
+
+    def perform_route(self):
+        self.status = route_status.in_progress
+        self.update_route_status()
+
+    def complete_route(self):
+        self.status = route_status.completed
+        self.finished_timestamp = datetime.now()
+
+    def get_all_tasks(self) -> List[dict]:
+        return [task.info() for task in self.tasks]
+
+    def update_route_status(self, _=None):
+        if any(task.status == task_status.rejected_by_executor for task in self.tasks):
+            self.document.reject_document()
+        elif all(task.status == task_status.completed_by_executor for task in self.tasks):
+            self.document.approve_document()
+        elif all(task.finished_timestamp is not None for task in self.tasks):
+            self.complete_route()
+        elif any(task.status == task_status.started for task in self.tasks):
+            self.start_route()
+            self.document.publish_document()
+        elif any(task.status == task_status.assigned or task.status == task_status.performing for task in self.tasks):
+            self.status = route_status.in_progress
+            self.document.review_document()
+        else:
+            self.status = route_status.new
+            self.created_timestamp = datetime.now()
+
+    def info(self):
+        return {
+            "created_timestamp": self.created_timestamp.isoformat() if self.created_timestamp else None,
+            "started_timestamp": self.started_timestamp.isoformat() if self.started_timestamp else None,
+            "finished_timestamp": self.finished_timestamp.isoformat() if self.finished_timestamp else None,
+            "initiator": self.initiator.info(),
+            "document": self.document.info(),
+            "status": self.status.value,
+            "tasks": self.get_all_tasks()
+        }
+################################# ячейка 3 - создание объектов ###############
+# Создание пользователей
+user_obj_1 = user(login="user1", email="user1@example.com", phone="1234567890", role=role.secretary)
+user_obj_2 = user(login="user2", email="user2@example.com", phone="0987654321", role=role.administrator)
+user_obj_3 = user(login="user3", email="user3@example.com", phone="1122334455", role=role.employee)
+
+# Создание файла
+doc_file_obj = doc_file(file_format=file_format.pdf, size=1024)
+
+# Создание документа
+doc_1 = document(number="DOC123", author=user_obj_1, doc_file=doc_file_obj)
+
+# Создание задачи
+task_obj_1 = task(name='задача 1', executor=user_obj_3)
+task_obj_2 = task(name='задача 2', executor=user_obj_2)
+
+# Создание маршрута
+route_obj = route(document=doc_1, initiator=user_obj_2)
+
+# Добавление задачи в маршрут
+route_obj.add_task(task_obj_1)
+route_obj.add_task(task_obj_2)
+
+
+
+################################# новая ячейка ###############
+#вывод информации о всех задачах конкретного маршрута
+route_obj.get_all_tasks()
+
+
+################################# новая ячейка ###############
+#вывод информации о документе
+doc_1.info()
+
+
+################################# новая ячейка ###############
+#стартовать маршрут
+route_obj.start_route()
+
+#показать информацию о маршруте
+route_obj.info()
+
+
+################################# новая ячейка ###############
+############## новая ячейка - управление задачами #######################
+task_obj_1.start_task() #стартовать задачу 1
+print("---------------- задача 1 стартована ---------------- ")
+print("Статус задачи: ", task_obj_1.status.value)
+print("Время старта задачи: ", task_obj_1.started_timestamp)
+print("\n---------------- задача 1 выполнена - согласовано ---------------- ")
+task_obj_1.complete_task() #согласовать задачу 1
+print("Статус задачи: ", task_obj_1.status.value)
+print("\n---------------- выполненная задача 1 принята инициатором---------------- ")
+task_obj_1.accept_task() #принять задачу 1
+print("Статус задачи: ", task_obj_1.status.value)
+print("Время завершения задачи: ", task_obj_1.finished_timestamp)
+
+task_obj_2.start_task() #стартовать задачу 2
+print("\n---------------- задача 2 стартована---------------- ")
+print("Статус задачи: ", task_obj_2.status.value)
+print("Время старта задачи: ", task_obj_2.started_timestamp)
+task_obj_2.reject_task() #отказать в согласовании документа по задачу 2
+print("\n---------------- задача 2 выполнена - не согласовано---------------- ")
+print("Статус задачи: ", task_obj_2.status.value)
+print("\n---------------- выполненная задача 2 принята инициатором---------------- ")
+task_obj_2.accept_task() #принять задачу 2
+print("Статус задачи: ", task_obj_2.status.value)
+print("Время завершения задачи: ", task_obj_2.finished_timestamp)
+
+#узнаем статус маршрута
+print("\nСтатус маршрута: ", route_obj.status.value)
+print("Время завершения маршрута: ", route_obj.finished_timestamp)
+#узнаем статус документа
+print("Статус документа: ",  route_obj.document.status.value)
+
+
+################################# новая ячейка ###############
+#показать информацию о маршруте
+route_obj.info()
