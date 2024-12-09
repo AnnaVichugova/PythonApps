@@ -1,0 +1,122 @@
+@startuml
+title Согласование документа
+actor initiator as I
+
+participant route as R
+participant task as T
+participant document as D
+actor executor as E
+
+
+I -> R : create(document, initiator)
+activate R
+R -> R: set created_timestamp = datetime.now()
+R -> R: set status = route_status.new
+R --> I : route.info
+deactivate R
+
+
+I -> R : add_task(task)
+activate R
+R -> T : info()
+activate T
+T --> R : task.info
+deactivate T
+R -> R : tasks.append(task)
+R --> I : route.info
+deactivate R
+
+I -> R : start_route()
+activate R
+R -> R : set started_timestamp() = datetime.now()
+R -> R : set status = route_status.started
+R -> D : publish_document()
+activate D
+D -> D : set status = document_status.published
+D --> R : route.info
+deactivate D
+R -> T : start_task()
+activate T
+T -> T : set status = task_status.assigned
+T --> R : task.info
+deactivate T
+R -> D : review_document()
+activate D
+D -> D : set status = document_status.on_review
+D --> R : document.info
+deactivate D
+E -> T : receive_task()
+activate T
+T -> T : set status = task_status.started
+T --> E : task.info
+alt исполнитель принял задачу
+E -> T : perform_task()
+T -> T : set status = task_status.performing
+T -> R : update_route_status(task.status)
+R -> R : set status = route_status.in_progress
+alt исполнитель согласовал документ
+E -> T : complete_task()
+T -> T : set status = task_status.completed_by_executor
+T --> E : task.info
+T -> R : update_route_status(task.status)
+else исполнитель не согласовал документ
+E -> T : reject_task()
+T -> T : set status = task_status.rejected_by_executor
+T --> E : task.info
+T -> R : update_route_status(task.status)
+deactivate T
+R -> D : reject_document()
+activate D
+D -> D : set status = document_status.rejected
+D --> R : document.info
+deactivate D
+end alt
+I -> T : accept_task()
+activate T
+T -> T : set status = task_status.accepted_by_initiator
+T -> T : finish_task()
+T -> T : set status = task_status.finished
+T -> T : set finished_timestamp = datetime.now()
+T --> I : task.info
+deactivate T
+
+else исполнитель отклонил задачу
+E -> T : decline_task()
+activate T
+T -> T : set status = task_status.declined_by_executor
+T -> R : update_route_status(task.status)
+deactivate T
+end alt
+
+opt инициатор отменил задачу
+I -> T : cancel_task()
+activate T
+T -> T : set status = task_status.canceled_by_initiator
+T -> T : set finished_timestamp = datetime.now()
+T -> R : update_route_status(task.status)
+T --> I : task.info
+deactivate T
+end opt
+
+group update_route_status(task.status)
+alt у всех задач есть finished_timestamp
+T -> R:complete_route()
+activate T
+R -> R : set status = route_status.compeleted
+R -> R : set finished_timestamp = datetime.now()
+R --> T : route.info
+deactivate T
+alt все задачи в этом маршруте согласованы, имеют статус completed_by_executor
+R -> D : approve_document()
+activate D
+D -> D : set status = document_status.approved
+D --> R : document.info
+deactivate D
+end alt
+end alt
+end group
+
+R --> I : route.info
+deactivate R
+
+@enduml
