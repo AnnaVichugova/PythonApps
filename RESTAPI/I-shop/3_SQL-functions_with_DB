@@ -815,7 +815,4 @@ def get_analytical_report(conn, start, finish):
         pdf.savefig(fig_circle)
         plt.close(fig_circle)
 
-        pdf.savefig(fig_circle)
-        plt.close(fig_circle)
-
     return pdffile
