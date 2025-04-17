@@ -15,6 +15,7 @@ from spyne import Application, rpc, ServiceBase, Unicode, Integer
 from spyne.protocol.soap import Soap11
 from spyne.server.wsgi import WsgiApplication
 from lxml import etree
+from pyngrok import ngrok
 
 
 #устанавливаем свой токен ngrok для тунелирования, взять личный токен здесь https://dashboard.ngrok.com/
