@@ -1,0 +1,75 @@
+#  пример с наследованием
+#################################   объявление классов   ########################
+class provider_profile(Enum):
+ moto = 'мототехника'
+ auto = 'автотехника'
+ lcv = 'легкая коммерческая техника'
+ cargo = 'грузовики'
+
+class firm_type(Enum):
+  OOO = 'OOO'
+  IP = 'ИП'
+  ZAO = 'ЗАО'
+  FL= 'физлицо'
+
+class сlient_status(Enum):
+    active = 'активный'
+    nonactive = 'неактивный'
+
+class Contragent:
+    def __init__(self, name: str, address:str, email: str, phone: str, inn: str, messager: str, bank_account: str, firm_type: firm_type):
+        self.name= name
+        self.email = email
+        self.phone = phone
+        self.inn = inn
+        self.messager = messager
+        self.bank_account = bank_account
+        self.firm_type= firm_type
+        self.address = address
+
+    def info(self):
+        return {
+            "name": self.name,
+            "email": self.email,
+            "phone": self.phone,
+            "inn": self.inn,
+            "messager": self.messager,
+            "bank_account": self.bank_account,
+            "firm_type": self.firm_type.value,
+            "address": self.address
+        }
+
+class provider(Contragent):
+    def __init__(self, name: str, address: str, email: str, phone: str, inn: str, messager: str, bank_account: str, firm_type: firm_type, profile: provider_profile):
+        super().__init__(name, address, email, phone, inn, messager, bank_account, firm_type)
+        self.profile = profile
+
+class client(Contragent):
+    def __init__(self, name: str, address: str, email: str, phone: str, inn: str, messager: str, bank_account: str, firm_type: firm_type, status: сlient_status):
+        super().__init__(name, address, email, phone, inn, messager, bank_account, firm_type)
+        self.status = status
+
+#################################  создание объектов   ########################
+provider_1 = provider(
+    name="АО Василек",
+    address="Москва, ул. Грузинская, 1",
+    inn="1234567890",
+    phone="+1234567890",
+    email="example@provider.com",
+    messager="@vasilek",
+    bank_account="12345678901234567890",
+    firm_type=firm_type.OOO,
+    profile=provider_profile.auto
+)
+
+client_1 = client(
+    name="Василь Ваислич",
+    address="СПБ, ул. Ленина, 2",
+    inn="0987654321",
+    phone="+0987654321",
+    email="example@client.com",
+    messager="WhatsApp",
+    bank_account="09876543210987654321",
+    firm_type=firm_type.FL,
+    status=сlient_status.active
+)
